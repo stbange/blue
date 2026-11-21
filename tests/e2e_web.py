@@ -1,5 +1,6 @@
 """Drive the packaged instrument on a nested origin and inspect its recorded master."""
 import argparse
+import os
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -33,8 +34,9 @@ def main():
     threading.Thread(target=server.serve_forever,daemon=True).start()
     url=f"http://127.0.0.1:{server.server_port}/{args.site.name}/"
     with sync_playwright() as pw, tempfile.TemporaryDirectory() as tmp:
-        browser=getattr(pw,args.browser).launch(executable_path=args.executable)
+        browser=getattr(pw,args.browser).launch(executable_path=args.executable,headless=not os.getenv("BLUE_HEADED"),channel="chromium" if args.browser=="chromium" and not args.executable else None)
         page=browser.new_page()
+        expect.set_options(timeout=20000)
         page.on("pageerror",lambda err: print("Browser error",err,flush=True))
         if args.iwer:
             page.add_init_script(script=args.iwer.read_text()+"\nwindow.xrDevice=new IWER.XRDevice(IWER.metaQuest3);xrDevice.installRuntime({forceInstall:true});")

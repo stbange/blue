@@ -14,6 +14,8 @@ typedef struct {
   float low[2], band[2], comb[2][1024];
   Grain grain[GRAINS];
   unsigned rng;
+  double node_state[8];
+  const BlueNodeType *type;
 } LaneState;
 typedef struct {
   int key, active, released, pedal, generation;
@@ -109,8 +111,11 @@ void blue_event(BlueEngine *e, int cmd, int id, float val) {
     v->generation = e->current;
     v->velocity = bound(val, 0, 1);
     v->start = e->clock;
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 3; i++){
       v->lane[i].rng = e->patches[e->current].seed + (unsigned)id + i;
+      v->lane[i].type=blue_node(e->patches[e->current].lane[i].type_key);
+      if(v->lane[i].type && v->lane[i].type->reset)v->lane[i].type->reset(v->lane[i].node_state);
+    }
   } else if (cmd == NOTE_OFF) {
     Voice *oldest = NULL;
     for (int i = 0; i < e->voices; i++) {
@@ -173,6 +178,7 @@ static float source(LaneState *s, const BlueLane *l, const BluePatch *p,
   double step =
       freq / (440 * exp2((l->root - 69) / 12.)) * p->sample_rate / rate;
   switch (l->source) {
+  case CUSTOM: return s->type?s->type->process(s->node_state,ph,freq,rate,l->parameter):0;
   case SAW: {
     double dt = fmin(freq / rate, .499), x = 2 * ph - 1;
     if (ph < dt) {

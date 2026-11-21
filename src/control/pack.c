@@ -198,9 +198,14 @@ int blue_load(BluePatch *out, const char *folder, const char *preset, char *err,
   for (int i = 0; i < count; i++) {
     cJSON *o = cJSON_GetArrayItem(lanes, i);
     BlueLane *l = &p->lane[i];
-    l->source = choice(modes, cJSON_GetStringValue(FIELD(o, "source")));
-    if (l->source < 0)
-      goto end;
+    const char *source_id=cJSON_GetStringValue(FIELD(o,"source"));
+    l->source=choice(modes,source_id);
+    if(l->source<0){
+      l->type_key=blue_node_key(source_id);
+      const BlueNodeType *type=blue_node(l->type_key);
+      if(!type || strcmp(type->type_id,source_id)){snprintf(script_error,sizeof script_error,"unknown node %s",source_id?source_id:"(missing)");reason=script_error;goto end;}
+      l->source=CUSTOM;l->parameter=type->initial;number(o,"parameter",&l->parameter,type->minimum,type->maximum,&valid);
+    }
 #define LNUM(k, lo, hi) number(o, #k, &l->k, lo, hi, &valid)
     LNUM(gain, 0, 2);
     LNUM(pan, -1, 1);

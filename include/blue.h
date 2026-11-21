@@ -1,12 +1,13 @@
 #ifndef BLUE_H
 #define BLUE_H
 #include <stddef.h>
+#include "blue_node.h"
 #include <stdint.h>
 #define BLUE_LANES 3
 #define BLUE_POINTS 128
 #define BLUE_SAMPLE 65536
 #define BLUE_VOICES 24
-enum BlueSource { SINE, SAW, TABLE, FM, RING, SAMPLE, GRAIN };
+enum BlueSource { SINE, SAW, TABLE, FM, RING, SAMPLE, GRAIN, CUSTOM };
 enum BlueInsert { BYPASS, LOWPASS, HIGHPASS, BANDPASS, SHAPE, COMB };
 enum BlueCommand {
   NOTE_ON,
@@ -25,6 +26,8 @@ typedef struct {
   int source, insert[2], root;
   float gain, pan, ratio, depth, cutoff, send, space, morph, density, size,
       position, scatter, decay, env_cutoff;
+  uint32_t type_key;
+  float parameter;
   float harmonic[2][16];
 } BlueLane;
 typedef struct {

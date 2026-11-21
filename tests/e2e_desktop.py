@@ -35,9 +35,30 @@ def main():
                 window=windows[-1]
                 window.set_input_focus(X.RevertToParent,X.CurrentTime)
                 connection.sync()
-            w,h=ui.size();ui.click(w//2,h//2-160)
-            ui.press("left");ui.press("f5");ui.press("right");ui.press("f9")
-            ui.press("r");ui.keyDown("h");time.sleep(.35);ui.keyUp("h");time.sleep(.18);ui.press("r")
+            keys=ui
+            if sys.platform=="win32":
+                import ctypes
+                user=ctypes.windll.user32
+                for _ in range(100):
+                    handle=user.FindWindowW(None,"Blue | Hybrid synthesizer")
+                    if handle:break
+                    time.sleep(.1)
+                assert handle,"Blue window did not appear"
+                class WindowKeys:
+                    codes={"left":37,"right":39,"f5":116,"f9":120,"escape":27}
+                    def post(self,key,up):
+                        code=self.codes.get(key,ord(key.upper()) if len(key)==1 else 0)
+                        scan=user.MapVirtualKeyW(code,0)
+                        flags=1|(scan<<16)|(0xc0000000 if up else 0)
+                        user.PostMessageW(handle,0x101 if up else 0x100,code,flags)
+                    def keyDown(self,key):self.post(key,False)
+                    def keyUp(self,key):self.post(key,True)
+                    def press(self,key):self.keyDown(key);time.sleep(.04);self.keyUp(key);time.sleep(.05)
+                keys=WindowKeys()
+            else:
+                w,h=ui.size();ui.click(w//2,h//2-160)
+            keys.press("left");keys.press("f5");keys.press("right");keys.press("f9")
+            keys.press("r");keys.keyDown("h");time.sleep(.35);keys.keyUp("h");time.sleep(.18);keys.press("r")
             for i in range(30):
                 if wav.exists() and wav.stat().st_size>2048:break
                 time.sleep(.1)
@@ -50,7 +71,7 @@ def main():
             assert abs(freq-440)<10,(freq,len(signal))
             assert max(map(abs,pcm[-int(rate*.03):]))==0
             print(f"Desktop master recorded {len(pcm)} frames, {freq:.1f} Hz.")
-            ui.press("escape");assert child.wait(timeout=10)==0
+            keys.press("escape");assert child.wait(timeout=10)==0
         finally:
             if child.poll() is None:child.terminate();child.wait(timeout=10)
 if __name__=="__main__":main()

@@ -58,7 +58,16 @@ static double render(BlueEngine *e, int n) {
   }
   return power;
 }
+static void node_reset(double state[8]){state[0]=.5;}
+static float node_sample(double state[8],double phase,double hz,int rate,float parameter){(void)phase;(void)hz;(void)rate;return (float)state[0]*parameter;}
+static void registry_test(void){
+  static const BlueNodeType type={"fixture.node.v1","amplitude",0,1,.5f,node_reset,node_sample};
+  CHECK(!blue_register_node(NULL));CHECK(blue_register_node(&type));CHECK(!blue_register_node(&type));CHECK(blue_node_key("")==0);
+  BlueEngine *e=blue_create(48000,1);BluePatch *p=blue_stage(e);blue_defaults(p);p->lane[0].source=CUSTOM;p->lane[0].type_key=blue_node_key(type.type_id);p->lane[0].parameter=.5;blue_commit(e);
+  blue_event(e,NOTE_ON,69,1);CHECK(render(e,32)>0);blue_destroy(e);
+}
 int main(int argc, char **argv) {
+  registry_test();
   CHECK(argc == 2);
   CHECK(!blue_create(1, 3));
   CHECK(!blue_create(48000, 100));
