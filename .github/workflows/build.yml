@@ -1,0 +1,56 @@
+name: Build and exercise Blue
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev libxss-dev libxxf86vm-dev xvfb xauth
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+      - run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build build --parallel 4
+      - run: ctest --test-dir build --output-on-failure
+      - run: pip install pyautogui==0.9.54
+      - if: runner.os == 'Linux'
+        run: xvfb-run -a python tests/e2e_desktop.py build/bin/Blue
+      - if: runner.os == 'Windows'
+        run: python tests/e2e_desktop.py build/bin/Blue.exe
+      - if: runner.os == 'macOS'
+        run: python tests/e2e_desktop.py build/bin/Blue
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Blue-${{ runner.os }}
+          path: build/bin/
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 4.0.20
+      - run: emcmake cmake -S . -B build-web -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build build-web --parallel 4
+      - run: pip install playwright==1.55.0
+      - run: python -m playwright install --with-deps chromium firefox webkit
+      - run: npm install --no-save iwer@2.8.0
+      - run: python tests/e2e_web.py build-web/bin --browser chromium
+      - run: python tests/e2e_web.py build-web/bin --browser firefox
+      - run: python tests/e2e_web.py build-web/bin --browser webkit
+      - run: python tests/e2e_web.py build-web/bin --iwer node_modules/iwer/build/iwer.min.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Blue-Web
+          path: build-web/bin/
