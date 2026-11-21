@@ -20,6 +20,11 @@ def main():
             put("pack.json",manifest);put("patch.json",doc);(p/"voice.lua").write_text(script);run("wave",p/"audio.wav")
         def check(good): run("pack",p,int(good))
         fixture();check(True)
+        put("patch.json",{**doc,"format":0,"volume":.4});check(True)
+        (p/"voice.lua").write_text("blue.at(0.01,2,0.75)");check(True)
+        (p/"voice.lua").write_text("blue.at(-1,0,3)");check(False)
+        (p/"patch.json").write_text('{"format":1,"lanes":[],"lanes":[]}');check(False)
+        fixture()
         (root/"index.json").write_text('{"packs":["../escape","absent","pack"]}');run("catalog",root,1);run("catalog",p,0)
         for key,value in [('format',2),('lanes',[]),('lanes',[{}]*4),('envelope',[dict(time=0)]*129),('envelope',[dict(time=1)]),('envelope',[dict(time=0),dict(time=0)]),('loop',3),('sample','absent'),('lfo',[32]),('loop_end',0),('gain','one')]:
             case=dict(doc);case[key]=value;put('patch.json',case);check(False)

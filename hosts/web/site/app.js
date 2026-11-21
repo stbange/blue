@@ -101,7 +101,7 @@ $("import").onchange=async e=>{try{
 }catch(err){status(err.message);}finally{e.target.value="";}};
 $("midi").onclick=async()=>{try{const midi=await navigator.requestMIDIAccess();for(const input of midi.inputs.values())input.onmidimessage=({data:[s,k,v]})=>{
   switch(s>>4){case 8:event(1,k,0);break;case 9:event(v?0:1,k,v/127);break;case 11:if(k===64)event(2,0,v/127);else if(k===1)event(5,0,v/127);break;case 13:event(4,0,k/127);break;case 14:event(3,0,((v*128+k)-8192)/4096);break;}};status("MIDI connected.");}catch(e){status(e.message);}};
-$("xr").onclick=()=>enterXR(event,status,macro).catch(e=>status(e.message));
+$("xr").onclick=()=>{if(!node)return status("Start audio before entering WebXR.");enterXR(event,status,macro).catch(e=>status(e.message));};
 const canvas=$("scope"),g=canvas.getContext("2d"),signal=new Float32Array(1024);
 function paint(){if(analyser)analyser.getFloatTimeDomainData(signal);g.clearRect(0,0,900,120);g.strokeStyle="#294859";g.beginPath();
   for(let x=0;x<900;x+=50){g.moveTo(x,0);g.lineTo(x,120);}g.stroke();g.beginPath();g.strokeStyle="#75dfdc";g.lineWidth=2;

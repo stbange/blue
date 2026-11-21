@@ -46,7 +46,7 @@ jobs:
       - run: cmake --build build-web --parallel 4
       - run: pip install playwright==1.55.0
       - run: python -m playwright install --with-deps chromium firefox webkit
-      - run: sudo apt-get install -y pulseaudio xvfb && pulseaudio --start && pactl load-module module-null-sink sink_name=blue && pactl set-default-sink blue
+      - run: sudo apt-get install -y pulseaudio xvfb && pulseaudio --start --exit-idle-time=-1 && pactl load-module module-null-sink sink_name=blue && pactl set-default-sink blue
       - run: npm install --no-save iwer@2.8.0
       - run: xvfb-run -a python tests/e2e_web.py build-web/bin --browser chromium --executable /usr/bin/google-chrome
       - run: xvfb-run -a python tests/e2e_web.py build-web/bin --browser firefox

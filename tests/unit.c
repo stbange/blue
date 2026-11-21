@@ -87,6 +87,18 @@ static void registry_test(void) {
 }
 int main(int argc, char **argv) {
   registry_test();
+  const int partitions[]={1,63,128,511};
+  for(int k=0;k<4;k++){
+    BlueEngine *e=blue_create(48000,2);BluePatch *p=blue_stage(e);blue_defaults(p);
+    p->lane[0].source=CUSTOM;p->lane[0].type_key=blue_node_key("fixture.node.v1");p->lane[0].parameter=1;
+    p->attack=p->release=0;p->step_count=1;p->steps[0].seconds=.002;p->steps[0].macro=2;p->steps[0].value=.5;blue_commit(e);
+    BlueEvent ev[]={{137,NOTE_ON,69,1},{279,NOTE_OFF,69,0}};size_t cursor=0;
+    for(int n=0;n<511;){int len=partitions[k];if(len>511-n)len=511-n;size_t first=cursor;
+      while(cursor<2 && ev[cursor].frame<(unsigned)(n+len))cursor++;
+      float l[511],r[511];blue_timeline(e,l,r,len,ev+first,cursor-first);
+      for(int j=0;j<len;j++)CHECK((l[j]!=0)==(n+j>=137 && n+j<279));n+=len;}
+    blue_destroy(e);
+  }
   BlueQueue queue = {0};
   BlueEngine *qe = blue_create(48000, 2);
   for (int k = 0; k < 512; k++)
@@ -100,6 +112,15 @@ int main(int argc, char **argv) {
   CHECK(!queue.emergency && !queue.used && render(qe, 64) == 0);
   blue_destroy(qe);
   CHECK(argc == 2);
+  char locations[2048],diagnostic[2048];
+  CHECK(blue_source_path(argv[1],"Calibration",0,locations,sizeof locations) && strstr(locations,"calibration.json"));
+  CHECK(blue_source_path(argv[1],"Calibration",1,locations,sizeof locations) && strstr(locations,"performance.lua"));
+  CHECK(!blue_source_path(argv[1],"Calibration",1,locations,1));
+  BluePatch *custom=malloc(sizeof *custom);CHECK(custom);
+  CHECK(blue_compile(custom,argv[1],"Calibration","{\"format\":1,\"lanes\":[{\"source\":\"fixture.node.v1\",\"parameter\":0.3}],\"macros\":[0.6]}","blue.control(1,'Timbre')",diagnostic,sizeof diagnostic));
+  CHECK(custom->lane[0].source==CUSTOM && fabs(custom->macro[0]-.6)<.001);
+  CHECK(!blue_compile(custom,argv[1],"Calibration","{\"format\":1,\"lanes\":[{\"source\":\"sine\"}],\"macros\":[-2]}","",diagnostic,sizeof diagnostic));
+  free(custom);
   CHECK(!blue_create(1, 3));
   CHECK(!blue_create(48000, 100));
   int rates[] = {44100, 48000, 96000}, blocks[] = {1, 63, 128, 511};

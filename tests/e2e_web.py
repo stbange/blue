@@ -40,6 +40,9 @@ def main():
         page.on("console",lambda m: print("Console",m.type,m.text[:300],flush=True) if m.type in ("error","warning") else None)
         page.on("requestfailed",lambda r: print("Failed request",r.url,r.failure,flush=True))
         page.on("pageerror",lambda err: print("Browser error",err,flush=True))
+        if args.browser=="chromium":
+            # Chromium can run its real-time audio graph against a silent output device in CI.
+            page.add_init_script("window.AudioContext=class extends AudioContext{constructor(options={}){super({...options,sinkId:{type:'none'}})}}")
         if args.iwer:
             page.add_init_script(script=args.iwer.read_text()+"\nwindow.xrDevice=new IWER.XRDevice(IWER.metaQuest3);xrDevice.installRuntime({forceInstall:true});")
         page.goto(url)
@@ -66,14 +69,28 @@ def main():
         page.reload();page.get_by_role("button",name="Calibration").click()
         expect(page.locator("#mapping")).to_have_value(original+"\nblue.route(4, 'gain', -1)")
         page.locator("#start").click();expect(page.get_by_role("status")).to_contain_text("Playing")
+        if args.iwer:page.get_by_role("button",name="Record output").click()
         page.locator("#xr").click()
         if args.iwer:
             expect(page.get_by_role("status")).to_contain_text("Trigger plays")
             page.evaluate("xrDevice.controllers.right.updateButtonValue('trigger',1)")
-            page.wait_for_timeout(300)
+            page.wait_for_timeout(500)
+            page.evaluate("xrDevice.quaternion.set(0,1,0,0)")
+            page.wait_for_timeout(500)
             page.evaluate("xrDevice.controllers.right.updateButtonValue('trigger',0)")
             page.evaluate("xrDevice.activeSession.end()")
             expect(page.get_by_role("status")).to_contain_text("Returned")
+            page.wait_for_timeout(200)
+            with page.expect_download() as output:page.get_by_role("button",name="Stop recording").click()
+            output.value.save_as(wav)
+            with wave.open(str(wav)) as audio:
+                pcm=array("h",audio.readframes(audio.getnframes()))
+            ratios=[]
+            for i in range(0,len(pcm)-2048,2048):
+                left=sum(x*x for x in pcm[i:i+2048:2]);right=sum(x*x for x in pcm[i+1:i+2048:2])
+                if left+right>100000:ratios.append((right-left)/(left+right))
+            assert ratios and min(ratios)<-.1 and max(ratios)>.1,("XR stereo response",ratios)
+            assert max(map(abs,pcm[-1000:]))<64,"XR note remained active"
         else:expect(page.get_by_role("status")).not_to_contain_text("Playing")
         browser.close()
     server.shutdown()

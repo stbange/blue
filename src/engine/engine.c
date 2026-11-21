@@ -27,6 +27,7 @@ struct BlueEngine {
   BluePatch patches[2];
   int current, staged, rate, voices, sustain, pos;
   unsigned late;
+  unsigned next_step;uint64_t patch_start;
   uint64_t clock;
   float bend, pressure, wheel, macro[8], target[8], spatial[3], distance[3];
   float echo[2][ECHO], room[2][8192];
@@ -85,7 +86,7 @@ int blue_commit(BlueEngine *e) {
   if (!e->staged)
     return 0;
   e->staged = 0;
-  e->current = 1 - e->current;
+  e->current = 1 - e->current;e->next_step=0;e->patch_start=e->clock;
   memcpy(e->target, e->patches[e->current].macro, sizeof e->target);
   return 1;
 }
@@ -290,6 +291,10 @@ static float envelope(const BluePatch *p, double t) {
 }
 void blue_render(BlueEngine *e, float *left, float *right, int frames) {
   for (int n = 0; n < frames; n++, e->clock++) {
+    BluePatch *schedule=&e->patches[e->current];
+    while(e->next_step<(unsigned)schedule->step_count && e->clock-e->patch_start>=(uint64_t)llround((double)schedule->steps[e->next_step].seconds*e->rate)){
+      unsigned step=e->next_step++;e->target[schedule->steps[step].macro]=schedule->steps[step].value;
+    }
     float dry[2] = {0}, send[2] = {0}, room[2] = {0};
     for (int k = 0; k < 8; k++)
       e->macro[k] += (e->target[k] - e->macro[k]) * .01f;

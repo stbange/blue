@@ -40,6 +40,8 @@ typedef struct {
   int points, loop, sync;
   BluePoint envelope[BLUE_POINTS];
   unsigned seed;
+  int step_count;
+  struct {float seconds,value;int macro;} steps[64];
   char labels[8][32];
   int sample_count, sample_rate, loop_start, loop_end;
   float sample[BLUE_SAMPLE];

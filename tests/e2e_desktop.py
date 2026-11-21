@@ -49,7 +49,7 @@ def main():
                     def post(self,key,up):
                         code=self.codes.get(key,ord(key.upper()) if len(key)==1 else 0)
                         scan=user.MapVirtualKeyW(code,0)
-                        flags=1|(scan<<16)|(0xc0000000 if up else 0)
+                        flags=1|(scan<<16)|(1<<24 if key in ("left","right") else 0)|(0xc0000000 if up else 0)
                         user.PostMessageW(handle,0x101 if up else 0x100,code,flags)
                     def keyDown(self,key):self.post(key,False)
                     def keyUp(self,key):self.post(key,True)

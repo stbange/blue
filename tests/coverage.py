@@ -5,7 +5,7 @@ root=Path(__file__).resolve().parents[1]
 build=Path(sys.argv[1]).resolve()
 for file in build.rglob("*.gcda"):file.unlink()
 subprocess.run(["ctest","--test-dir",build,"--output-on-failure"],check=True)
-expected={p.resolve() for folder in ("src/engine","src/control") for p in (root/folder).glob("*.c")}
+expected={p.resolve() for folder in ("src/engine","src/control","hosts/web") for p in (root/folder).glob("*.c")}
 lines={}
 with tempfile.TemporaryDirectory() as out:
     for meta in build.rglob("*.gcno"):
