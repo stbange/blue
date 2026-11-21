@@ -1,9 +1,12 @@
+import {exportPack,unpack} from "./packs.js";
 import {enterXR} from "./xr.js";
 const $=id=>document.getElementById(id);
 const status=message=>$("status").textContent=message;
 const worker=new Worker("worker.js");
 let context,node,recorder,analyser,capture=false,serial=0,prepared,root,name,manifest;
 let requested,active,ready=false,starting=false;
+let assets;const packs=new Map();
+const storageKey=preset=>JSON.stringify([$("pack").value,preset]);
 const values=Array(8).fill(0);
 const mappings=["Motion","Level trim","Macro 3","Macro 4","Macro 5","Macro 6","Macro 7","Macro 8"];
 const held=new Set(),keys="awsedftgyhujk";
@@ -37,9 +40,9 @@ async function storage(key,value){
 }
 async function select(preset,revision,fromDisk=false){
   const id=++serial;requested=preset;status("Loading "+preset+"…");
-  try{if(!revision && !fromDisk)revision=await storage(preset).catch(()=>undefined);if(id!==serial)return;
-    worker.postMessage({id,root,preset,patch:revision?.patch,script:revision?.script});
-    active=revision?.macros??Array(8).fill(0);
+  try{if(!revision && !fromDisk)revision=await storage(storageKey(preset)).catch(()=>undefined);if(id!==serial)return;
+    worker.postMessage({id,root,preset,assets,patch:revision?.patch,script:revision?.script});
+    active=revision?.macros;
   }catch(e){status(e.message);}
 }
 function controls(){
@@ -47,7 +50,7 @@ function controls(){
   $("lanes").replaceChildren(...JSON.parse(prepared.document).lanes.map((l,i)=>{const s=document.createElement("span");s.textContent="ABC"[i]+"  /  "+l.source;return s;}));
   for(const b of $("library").children)b.setAttribute("aria-current",String(b.textContent===name));
   prepared.labels.forEach((label,i)=>{$("m"+i).parentNode.firstChild.nodeValue=label||mappings[i];});
-  active.forEach((v,i)=>macro(i,v));
+  (active??JSON.parse(prepared.document).macros??Array(8).fill(0)).forEach((v,i)=>macro(i,v));
 }
 worker.onmessage=({data})=>{
   if(data.id!==serial)return;if(data.error){status(data.error);return;}
@@ -56,16 +59,20 @@ worker.onmessage=({data})=>{
 worker.onerror=e=>status(e.message);
 function publish(){node.port.postMessage({id:serial,buffer:prepared.buffer});}
 async function start(){
-  if(starting || node)return;if(!ready){status("Wait for the patch to load.");return;}starting=true;
+  if(starting || node)return;if(!ready){status("Wait for the patch to load.");return;}starting=true;status("Starting audio device…");
   try{
-    context=new AudioContext();await context.resume();
-    const [module]=await Promise.all([WebAssembly.compileStreaming(fetch("audio.wasm")),context.audioWorklet.addModule("worklet.js")]);
+    context=new AudioContext();const resume=context.resume();
+    status("Loading audio renderer…");
+    const [module,worklet]=await Promise.all([WebAssembly.compileStreaming(fetch("audio.wasm")),fetch("worklet.js").then(r=>r.text())]);
+    const workletURL=URL.createObjectURL(new Blob([worklet],{type:"text/javascript"}));
+    status("Initializing audio worklet…");
+    try{await context.audioWorklet.addModule(workletURL);}finally{URL.revokeObjectURL(workletURL);}
     node=new AudioWorkletNode(context,"blue-render",{numberOfInputs:0,outputChannelCount:[2],processorOptions:{module}});
     recorder=new AudioWorkletNode(context,"blue-recorder",{outputChannelCount:[2]});
     analyser=context.createAnalyser();analyser.fftSize=1024;node.connect(recorder).connect(analyser).connect(context.destination);
     recorder.port.onmessage=({data})=>{download(wav(data.samples,data.rate),"Blue-recording.wav");status("Recording saved.");};
     node.port.onmessage=({data})=>{if(data.applied===serial){values.forEach((v,i)=>event(6,i,v));status("Playing "+name);}};
-    publish();$("start").textContent="Audio on";$("start").disabled=true;
+    status("Waiting for audio output…");publish();await resume;$("start").textContent="Audio on";$("start").disabled=true;
   }catch(e){status(e.message);node=null;if(context)await context.close();}finally{starting=false;}
 }
 $("start").onclick=start;
@@ -80,10 +87,18 @@ function wav(samples,rate){
 $("record").onclick=()=>{if(!node)return status("Start audio to record.");capture=!capture;recorder.port.postMessage(capture);$("record").textContent=capture?"Stop recording":"Record output";};
 const revision=()=>({format:1,preset:name,patch:$("document").value,script:$("mapping").value,macros:[...values]});
 $("apply").onclick=()=>select(name,revision());
-$("save").onclick=async()=>{if(!prepared)return;try{await storage(name,{...revision(),patch:prepared.document,script:prepared.mapping});status("Saved active revision.");}catch(e){status(e.message);}};
+$("save").onclick=async()=>{if(!prepared)return;try{await storage(storageKey(name),{...revision(),patch:prepared.document,script:prepared.mapping});status("Saved active revision.");}catch(e){status(e.message);}};
 $("reload").onclick=()=>select(name||requested,undefined,true);
-$("export").onclick=()=>download(new Blob([JSON.stringify(revision(),null,2)],{type:"application/json"}),"Blue-revision.json");
-$("import").onchange=async e=>{try{const doc=JSON.parse(await e.target.files[0].text());if(!manifest.presets[doc.preset] || doc.format!==1 || !Array.isArray(doc.macros) || doc.macros.length!==8 || doc.macros.some(x=>!Number.isFinite(x)||x<0||x>1))throw Error("Incompatible revision");await select(doc.preset,doc);}catch(err){status(err.message);}};
+$("export").onclick=async()=>{try{
+  const read=async file=>{if(assets)return assets[file];const r=await fetch(new URL(file,root));if(!r.ok)throw Error(file);return new Uint8Array(await r.arrayBuffer());};
+  download(await exportPack(manifest,name,prepared.document,prepared.mapping,values,read),name+".zip");
+}catch(e){status(e.message);}};
+$("import").onchange=async e=>{try{
+  const item=unpack(new Uint8Array(await e.target.files[0].arrayBuffer()));
+  const key="user/"+item.manifest.id;await storage(key,item);
+  const users=await storage("imports")||[];if(!users.includes(key))await storage("imports",[...users,key]);
+  register(key,item);openPack(key);
+}catch(err){status(err.message);}finally{e.target.value="";}};
 $("midi").onclick=async()=>{try{const midi=await navigator.requestMIDIAccess();for(const input of midi.inputs.values())input.onmidimessage=({data:[s,k,v]})=>{
   switch(s>>4){case 8:event(1,k,0);break;case 9:event(v?0:1,k,v/127);break;case 11:if(k===64)event(2,0,v/127);else if(k===1)event(5,0,v/127);break;case 13:event(4,0,k/127);break;case 14:event(3,0,((v*128+k)-8192)/4096);break;}};status("MIDI connected.");}catch(e){status(e.message);}};
 $("xr").onclick=()=>enterXR(event,status,macro).catch(e=>status(e.message));
@@ -92,9 +107,23 @@ function paint(){if(analyser)analyser.getFloatTimeDomainData(signal);g.clearRect
   for(let x=0;x<900;x+=50){g.moveTo(x,0);g.lineTo(x,120);}g.stroke();g.beginPath();g.strokeStyle="#75dfdc";g.lineWidth=2;
   for(let i=0;i<signal.length;i++){const x=i*900/1023,y=60-signal[i]*108;i?g.lineTo(x,y):g.moveTo(x,y);}g.stroke();requestAnimationFrame(paint);}
 paint();
+function register(key,item){
+  if(!packs.has(key))$("pack").add(new Option(item.manifest.id+(item.assets?" (user)":""),key));
+  packs.set(key,item);
+}
+function openPack(key){
+  const item=packs.get(key);if(!item)return;
+  manifest=item.manifest;assets=item.assets;root=item.root;$("pack").value=key;
+  $("library").replaceChildren();for(const preset of Object.keys(manifest.presets)){
+    const b=document.createElement("button");b.textContent=preset;b.onclick=()=>select(preset);$("library").append(b);
+  }
+  select(Object.keys(manifest.presets)[0]);
+}
+$("pack").onchange=()=>openPack($("pack").value);
 try{
-  const index=await (await fetch("content/index.json")).json();root=new URL("content/"+index.packs[0]+"/",document.baseURI).href;
-  manifest=await (await fetch(new URL("pack.json",root))).json();
-  for(const preset of Object.keys(manifest.presets)){const b=document.createElement("button");b.textContent=preset;b.onclick=()=>select(preset);$("library").append(b);}
-  await select(Object.keys(manifest.presets)[0]);
+  const index=await (await fetch("content/index.json")).json();
+  for(const folder of index.packs){const url=new URL("content/"+folder+"/",document.baseURI).href;
+    register(folder,{root:url,manifest:await (await fetch(new URL("pack.json",url))).json()});}
+  for(const key of await storage("imports").catch(()=>[])||[]){const item=await storage(key);if(item)register(key,item);}
+  openPack(index.packs[0]);
 }catch(e){status(e.message);}

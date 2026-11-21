@@ -48,12 +48,21 @@ jobs:
       - run: python -m playwright install --with-deps chromium firefox webkit
       - run: sudo apt-get install -y pulseaudio xvfb && pulseaudio --start && pactl load-module module-null-sink sink_name=blue && pactl set-default-sink blue
       - run: npm install --no-save iwer@2.8.0
-      - run: xvfb-run -a python tests/e2e_web.py build-web/bin --browser chromium
+      - run: xvfb-run -a python tests/e2e_web.py build-web/bin --browser chromium --executable /usr/bin/google-chrome
       - run: xvfb-run -a python tests/e2e_web.py build-web/bin --browser firefox
       - run: xvfb-run -a python tests/e2e_web.py build-web/bin --browser webkit
-      - run: xvfb-run -a python tests/e2e_web.py build-web/bin --iwer node_modules/iwer/build/iwer.min.js
+      - run: xvfb-run -a python tests/e2e_web.py build-web/bin --executable /usr/bin/google-chrome --iwer node_modules/iwer/build/iwer.min.js
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: Blue-Web
           path: build-web/bin/
+
+  unit-coverage:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: cmake -S . -B coverage -G Ninja -DBLUE_DESKTOP=OFF -DBLUE_COVERAGE=ON
+      - run: cmake --build coverage --parallel 4
+      - run: python tests/coverage.py coverage
+      - run: npx --yes --package=@fission-ai/openspec@2.1.1 openspec validate --all --strict --no-interactive

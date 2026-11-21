@@ -4,7 +4,7 @@ let chain = Promise.resolve();
 self.onmessage = ({data}) => {
   chain = chain.then(() => prepare(data)).catch(error => postMessage({id:data.id,error:String(error.message)}));
 };
-async function prepare({id, root, preset, patch, script}) {
+async function prepare({id, root, preset, patch, script, assets}) {
   const module = await ready;
   const folder = "/revision";
   module.FS.mkdirTree(folder);
@@ -12,6 +12,7 @@ async function prepare({id, root, preset, patch, script}) {
     if (!file || file.startsWith("/") || file.includes("..") || !/^[\w.\-/]+$/.test(file)) throw Error("Invalid pack path " + file);
     let bytes;
     if (override !== undefined) bytes = new TextEncoder().encode(override);
+    else if(assets){bytes=assets[file];if(!bytes)throw Error("Missing "+file);}
     else {
       const response = await fetch(new URL(file,root),{cache:"no-cache"});
       if (!response.ok) throw Error(file + " " + response.status);

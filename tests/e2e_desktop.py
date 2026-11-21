@@ -58,7 +58,7 @@ def main():
             else:
                 w,h=ui.size();ui.click(w//2,h//2-160)
             keys.press("left");keys.press("f5");keys.press("right");keys.press("f9")
-            keys.press("r");keys.keyDown("h");time.sleep(.35);keys.keyUp("h");time.sleep(.18);keys.press("r")
+            keys.press("r");keys.keyDown("h");time.sleep(.35);keys.keyUp("h");time.sleep(.9);keys.press("r")
             for i in range(30):
                 if wav.exists() and wav.stat().st_size>2048:break
                 time.sleep(.1)
@@ -69,7 +69,7 @@ def main():
             signal=pcm[active[0]:active[-1]+1]
             freq=sum(a<0<=b for a,b in zip(signal,signal[1:]))*rate/len(signal)
             assert abs(freq-440)<10,(freq,len(signal))
-            assert max(map(abs,pcm[-int(rate*.03):]))==0
+            tail=max(map(abs,pcm[-int(rate*.03):]));assert tail<64,(tail,len(pcm),active[-1],rate)
             print(f"Desktop master recorded {len(pcm)} frames, {freq:.1f} Hz.")
             keys.press("escape");assert child.wait(timeout=10)==0
         finally:

@@ -37,6 +37,8 @@ def main():
         browser=getattr(pw,args.browser).launch(executable_path=args.executable,headless=not os.getenv("BLUE_HEADED"),channel="chromium" if args.browser=="chromium" and not args.executable else None)
         page=browser.new_page()
         expect.set_options(timeout=20000)
+        page.on("console",lambda m: print("Console",m.type,m.text[:300],flush=True) if m.type in ("error","warning") else None)
+        page.on("requestfailed",lambda r: print("Failed request",r.url,r.failure,flush=True))
         page.on("pageerror",lambda err: print("Browser error",err,flush=True))
         if args.iwer:
             page.add_init_script(script=args.iwer.read_text()+"\nwindow.xrDevice=new IWER.XRDevice(IWER.metaQuest3);xrDevice.installRuntime({forceInstall:true});")

@@ -160,8 +160,25 @@ int blue_catalog(const char *root, BluePreset *items, int capacity) {
   cJSON_Delete(index);
   return used;
 }
+int blue_source_path(const char *folder, const char *preset, int script,
+                     char *path, size_t size) {
+  char manifest[2048];
+  if (!path_for(manifest, sizeof manifest, folder, "pack.json"))
+    return 0;
+  cJSON *pack = json(manifest);
+  const char *rel = cJSON_GetStringValue(
+      script ? FIELD(pack, "script") : FIELD(FIELD(pack, "presets"), preset));
+  int ok = path_for(path, size, folder, rel);
+  cJSON_Delete(pack);
+  return ok;
+}
 int blue_load(BluePatch *out, const char *folder, const char *preset, char *err,
               size_t size) {
+  return blue_compile(out, folder, preset, NULL, NULL, err, size);
+}
+int blue_compile(BluePatch *out, const char *folder, const char *preset,
+                 const char *patch_text, const char *lua_text, char *err,
+                 size_t size) {
   char path[2048] = "pack.json";
   int ok = 0, valid = 1;
   cJSON *pack = NULL, *doc = NULL;
@@ -179,7 +196,7 @@ int blue_load(BluePatch *out, const char *folder, const char *preset, char *err,
   const char *rel = cJSON_GetStringValue(FIELD(FIELD(pack, "presets"), preset));
   if (!path_for(path, sizeof path, folder, rel))
     goto end;
-  doc = json(path);
+  doc = patch_text ? cJSON_ParseWithOpts(patch_text, NULL, 1) : json(path);
   if (!doc || cJSON_GetNumberValue(FIELD(doc, "format")) != 1)
     goto end;
   cJSON *lanes = FIELD(doc, "lanes");
@@ -198,13 +215,21 @@ int blue_load(BluePatch *out, const char *folder, const char *preset, char *err,
   for (int i = 0; i < count; i++) {
     cJSON *o = cJSON_GetArrayItem(lanes, i);
     BlueLane *l = &p->lane[i];
-    const char *source_id=cJSON_GetStringValue(FIELD(o,"source"));
-    l->source=choice(modes,source_id);
-    if(l->source<0){
-      l->type_key=blue_node_key(source_id);
-      const BlueNodeType *type=blue_node(l->type_key);
-      if(!type || strcmp(type->type_id,source_id)){snprintf(script_error,sizeof script_error,"unknown node %s",source_id?source_id:"(missing)");reason=script_error;goto end;}
-      l->source=CUSTOM;l->parameter=type->initial;number(o,"parameter",&l->parameter,type->minimum,type->maximum,&valid);
+    const char *source_id = cJSON_GetStringValue(FIELD(o, "source"));
+    l->source = choice(modes, source_id);
+    if (l->source < 0) {
+      l->type_key = blue_node_key(source_id);
+      const BlueNodeType *type = blue_node(l->type_key);
+      if (!type || strcmp(type->type_id, source_id)) {
+        snprintf(script_error, sizeof script_error, "unknown node %s",
+                 source_id ? source_id : "(missing)");
+        reason = script_error;
+        goto end;
+      }
+      l->source = CUSTOM;
+      l->parameter = type->initial;
+      number(o, "parameter", &l->parameter, type->minimum, type->maximum,
+             &valid);
     }
 #define LNUM(k, lo, hi) number(o, #k, &l->k, lo, hi, &valid)
     LNUM(gain, 0, 2);
@@ -268,6 +293,13 @@ int blue_load(BluePatch *out, const char *folder, const char *preset, char *err,
     p->loop = (int)x;
   }
   p->sync = cJSON_IsTrue(FIELD(doc, "sync"));
+  cJSON *macros = FIELD(doc, "macros");
+  for (int i = 0; i < cJSON_GetArraySize(macros); i++) {
+    double v = cJSON_GetNumberValue(cJSON_GetArrayItem(macros, i));
+    if (i >= 8 || !isfinite(v) || v < 0 || v > 1)
+      goto end;
+    p->macro[i] = (float)v;
+  }
   float seed = 37;
   number(doc, "seed", &seed, 0, 16777215, &valid);
   p->seed = (unsigned)seed;
@@ -296,8 +328,8 @@ int blue_load(BluePatch *out, const char *folder, const char *preset, char *err,
   rel = cJSON_GetStringValue(FIELD(pack, "script"));
   if (!path_for(path, sizeof path, folder, rel))
     goto end;
-  char *src = read_text(path);
-  if (!src)
+  char *src = lua_text ? NULL : read_text(path);
+  if (!src && !lua_text)
     goto end;
   Script state = {0, p};
   lua_State *L = lua_newstate(limited, &state);
@@ -314,7 +346,8 @@ int blue_load(BluePatch *out, const char *folder, const char *preset, char *err,
   lua_setfield(L, -2, "control");
   lua_setglobal(L, "blue");
   lua_sethook(L, budget, LUA_MASKCOUNT, 50000);
-  int rc = luaL_loadbufferx(L, src, strlen(src), rel, "t");
+  int rc = luaL_loadbufferx(L, lua_text ? lua_text : src,
+                            strlen(lua_text ? lua_text : src), rel, "t");
   free(src);
   if (!rc)
     rc = lua_pcall(L, 0, 0, 0);

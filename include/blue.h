@@ -1,7 +1,7 @@
 #ifndef BLUE_H
 #define BLUE_H
-#include <stddef.h>
 #include "blue_node.h"
+#include <stddef.h>
 #include <stdint.h>
 #define BLUE_LANES 3
 #define BLUE_POINTS 128

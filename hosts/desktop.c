@@ -1,5 +1,7 @@
 #define SDL_MAIN_HANDLED
+#include "blue_queue.h"
 #include "control.h"
+#include "editor.h"
 #include "midi.h"
 #include <SDL.h>
 #include <stdio.h>
@@ -8,11 +10,17 @@
 #define RATE 48000
 #define RECORD_FRAMES (60 * RATE)
 typedef struct {
+  BlueEditor editor;
   BlueEngine *engine;
+  BlueQueue queue;
+  int macro_page, output_index;
+  char labels[8][32];
   SDL_AudioDeviceID device;
   float *recording;
   int capturing, recorded, rate, selected;
   float macros[8];
+  BluePatch *pending;
+  int pending_index;
   BluePreset catalog[128];
   int count;
   const char *wav;
@@ -22,6 +30,7 @@ typedef struct {
 static const char keys[] = "awsedftgyhujk";
 static void callback(void *ud, Uint8 *stream, int bytes) {
   App *a = ud;
+  blue_queue_drain(&a->queue, a->engine);
   float *out = (float *)stream;
   int frames = bytes / (2 * sizeof(float));
   for (int pos = 0; pos < frames;) {
@@ -42,35 +51,49 @@ static void callback(void *ud, Uint8 *stream, int bytes) {
 }
 static void event(App *a, int c, int key, float v) {
   SDL_LockAudioDevice(a->device);
-  blue_event(a->engine, c, key, v);
+  blue_queue_push(&a->queue, c, key, v);
   SDL_UnlockAudioDevice(a->device);
 }
 static void midi_sink(void *ud, int c, int key, float v) {
   event((App *)ud, c, key, v);
 }
+static void apply_pending(App *a) {
+  if (!a->pending)
+    return;
+  SDL_LockAudioDevice(a->device);
+  BluePatch *slot = blue_stage(a->engine);
+  SDL_UnlockAudioDevice(a->device);
+  if (!slot)
+    return;
+  *slot = *a->pending;
+  SDL_LockAudioDevice(a->device);
+  blue_commit(a->engine);
+  SDL_UnlockAudioDevice(a->device);
+  a->selected = a->pending_index;
+  memcpy(a->labels, a->pending->labels, sizeof a->labels);
+  snprintf(a->message, sizeof a->message, "Loaded %s",
+           a->catalog[a->selected].name);
+  for (int k = 0; k < 8; k++)
+    event(a, MACRO, k, a->macros[k]);
+  free(a->pending);
+  a->pending = NULL;
+}
 static void load(App *a, int which) {
   BluePatch *p = malloc(sizeof *p);
   if (!p)
     return;
-  if (blue_load(p, a->catalog[which].folder, a->catalog[which].name, a->message,
-                sizeof a->message)) {
-    SDL_LockAudioDevice(a->device);
-    BluePatch *slot = blue_stage(a->engine);
-    SDL_UnlockAudioDevice(a->device);
-    if (slot) {
-      *slot = *p;
-      SDL_LockAudioDevice(a->device);
-      blue_commit(a->engine);
-      SDL_UnlockAudioDevice(a->device);
-      a->selected = which;
-      snprintf(a->message, sizeof a->message, "Loaded %s",
-               a->catalog[which].name);
-      for (int k = 0; k < 8; k++)
-        event(a, MACRO, k, a->macros[k]);
-    } else
-      snprintf(a->message, sizeof a->message, "Release held notes and reload.");
+  if (!blue_load(p, a->catalog[which].folder, a->catalog[which].name,
+                 a->message, sizeof a->message)) {
+    free(p);
+    return;
   }
-  free(p);
+  free(a->pending);
+  a->pending = p;
+  a->pending_index = which;
+  apply_pending(a);
+  if (a->pending)
+    snprintf(a->message, sizeof a->message,
+             "Waiting for the previous notes to release");
 }
 static void capture(App *a) {
   SDL_LockAudioDevice(a->device);
@@ -104,6 +127,38 @@ static void label(SDL_Renderer *r, SDL_Texture *font, int x, int y,
 }
 static void draw(App *a, SDL_Renderer *r, SDL_Texture *font) {
   rect(r, 0, 0, 920, 480, 13, 22, 30);
+  if (a->editor.text) {
+    BlueEditor *e = &a->editor;
+    label(r, font, 24, 12, e->script ? "Lua mapping" : "Patch document", 2);
+    size_t line = 0;
+    for (size_t i = 0; i < e->cursor; i++)
+      if (e->text[i] == '\n')
+        line++;
+    size_t first = line > 19 ? line - 19 : 0;
+    const char *start = e->text;
+    for (size_t i = 0; i < first; i++) {
+      start = strchr(start, '\n') + 1;
+    }
+    for (int row = 0; row < 22 && start; row++) {
+      const char *end = strchr(start, '\n');
+      size_t len = end ? (size_t)(end - start) : strlen(start);
+      char displayed[101];
+      size_t width = len < 100 ? len : 100;
+      memcpy(displayed, start, width);
+      displayed[width] = 0;
+      label(r, font, 24, 55 + row * 16, displayed, 1);
+      size_t offset = start - e->text;
+      if (e->cursor >= offset && e->cursor <= offset + len)
+        rect(r, 24 + (int)((e->cursor - offset) % 101) * 8, 68 + row * 16, 8, 2,
+             85, 235, 221);
+      start = end ? end + 1 : NULL;
+    }
+    label(r, font, 24, 423,
+          "Ctrl+S  Validate and save source     Esc  Close editor", 1);
+    label(r, font, 24, 447, a->message, 1);
+    SDL_RenderPresent(r);
+    return;
+  }
   label(r, font, 28, 18, "BLUE", 3);
   label(r, font, 28, 75, "HYBRID SYNTHESIZER", 1);
   rect(r, 27, 108, 866, 50, 36, 65, 74);
@@ -111,9 +166,12 @@ static void draw(App *a, SDL_Renderer *r, SDL_Texture *font) {
   label(r, font, 610, 126, "LEFT / RIGHT   Change preset", 1);
   for (int k = 0; k < 2; k++) {
     int y = 185 + k * 47;
-    label(r, font, 30, y, k ? "Level trim" : "Motion", 2);
+    int idx = 2 * a->macro_page + k;
+    char fallback[20];
+    snprintf(fallback, sizeof fallback, "Macro %d", idx + 1);
+    label(r, font, 30, y, a->labels[idx][0] ? a->labels[idx] : fallback, 2);
     rect(r, 270, y, 610, 23, 42, 62, 74);
-    rect(r, 270, y, (int)(610 * a->macros[k]), 23, 92, 201, 192);
+    rect(r, 270, y, (int)(610 * a->macros[idx]), 23, 92, 201, 192);
   }
   for (int k = 0; k < 13; k++) {
     int dark = strchr("wetyu", keys[k]) != NULL;
@@ -123,11 +181,12 @@ static void draw(App *a, SDL_Renderer *r, SDL_Texture *font) {
     label(r, font, 48 + 66 * k, 324, s, 2);
   }
   label(r, font, 28, 390,
-        "Z  Reload pack      R  Record / save      F5  Save controls      F9  "
+        "Z Reload   R Record   F2 Macro pair   F3 Audio output   F5 Save   F9 "
         "Recall",
         1);
   label(r, font, 28, 425, a->capturing ? "Recording master ..." : a->message,
         1);
+  label(r, font, 28, 452, "F4  Edit patch JSON       F6  Edit Lua mapping", 1);
   SDL_RenderPresent(r);
 }
 static void state(App *a, int save) {
@@ -154,6 +213,38 @@ static void state(App *a, int save) {
   }
   fclose(f);
 }
+static int open_output(App *a, const char *name) {
+  SDL_AudioSpec want = {0}, have;
+  want.freq = RATE;
+  want.format = AUDIO_F32SYS;
+  want.channels = 2;
+  want.samples = 256;
+  want.callback = callback;
+  want.userdata = a;
+  SDL_AudioDeviceID device = SDL_OpenAudioDevice(
+      name, 0, &want, &have, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+  if (!device) {
+    snprintf(a->message, sizeof a->message, "%s", SDL_GetError());
+    return 0;
+  }
+  BlueEngine *engine = blue_create(have.freq, 16);
+  if (!engine) {
+    SDL_CloseAudioDevice(device);
+    return 0;
+  }
+  if (a->capturing)
+    capture(a);
+  if (a->device)
+    SDL_CloseAudioDevice(a->device);
+  blue_destroy(a->engine);
+  a->engine = engine;
+  a->device = device;
+  a->rate = have.freq;
+  a->queue.used = 0;
+  load(a, a->selected);
+  SDL_PauseAudioDevice(device, 0);
+  return 1;
+}
 int main(int argc, char **argv) {
   SDL_SetMainReady();
   if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO))
@@ -161,6 +252,8 @@ int main(int argc, char **argv) {
   char *base = SDL_GetBasePath();
   char root[2048], atlas[2048];
   snprintf(root, sizeof root, "%scontent", base ? base : "");
+  snprintf(atlas, sizeof atlas, "%scontent/graphics/font.bmp",
+           base ? base : "");
   SDL_free(base);
   App a = {0};
   a.wav = "Blue-recording.wav";
@@ -183,7 +276,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "%s\n", SDL_GetError());
     return 1;
   }
-  snprintf(atlas, sizeof atlas, "%s/graphics/font.bmp", root);
+
   SDL_Surface *bmp = SDL_LoadBMP(atlas);
   if (!bmp) {
     fprintf(stderr, "%s\n", atlas);
@@ -192,37 +285,51 @@ int main(int argc, char **argv) {
   SDL_SetColorKey(bmp, SDL_TRUE, SDL_MapRGB(bmp->format, 0, 0, 0));
   SDL_Texture *font = SDL_CreateTextureFromSurface(r, bmp);
   SDL_FreeSurface(bmp);
-  SDL_AudioSpec want = {0}, have;
-  want.freq = RATE;
-  want.format = AUDIO_F32SYS;
-  want.channels = 2;
-  want.samples = 256;
-  want.callback = callback;
-  want.userdata = &a;
-  a.device = SDL_OpenAudioDevice(NULL, 0, &want, &have,
-                                 SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
-  if (!a.device) {
-    fprintf(stderr, "%s\n", SDL_GetError());
+  if (!open_output(&a, NULL)) {
+    fprintf(stderr, "%s\n", a.message);
     return 1;
   }
-  a.rate = have.freq;
-  a.engine = blue_create(a.rate, 16);
   a.recording = calloc(RECORD_FRAMES * 2, sizeof(float));
   if (!a.recording || !a.engine)
     return 1;
   blue_midi_open();
-  load(&a, 0);
-  SDL_PauseAudioDevice(a.device, 0);
+
   int quit = 0, mouse = -1;
   while (!quit) {
+    apply_pending(&a);
     blue_midi_read(midi_sink, &a);
     SDL_Event ev;
     while (SDL_PollEvent(&ev)) {
+      if (ev.type == SDL_AUDIODEVICEREMOVED && ev.adevice.which == a.device)
+        open_output(&a, NULL);
       if (ev.type == SDL_QUIT)
         quit = 1;
       if (ev.type == SDL_WINDOWEVENT &&
           ev.window.event == SDL_WINDOWEVENT_FOCUS_LOST)
         event(&a, PANIC, 0, 0);
+      if (a.editor.text) {
+        if (ev.type == SDL_TEXTINPUT)
+          editor_input(&a.editor, ev.text.text);
+        if (ev.type == SDL_KEYDOWN) {
+          SDL_Keycode key = ev.key.keysym.sym;
+          if (key == SDLK_ESCAPE)
+            editor_close(&a.editor);
+          else if (key == SDLK_s &&
+                   ev.key.keysym.mod & (KMOD_CTRL | KMOD_GUI)) {
+            BluePatch *p = malloc(sizeof *p);
+            if (p && editor_save(&a.editor, &a.catalog[a.selected], p,
+                                 a.message, sizeof a.message)) {
+              free(a.pending);
+              a.pending = p;
+              a.pending_index = a.selected;
+              apply_pending(&a);
+            } else
+              free(p);
+          } else
+            editor_key(&a.editor, key, ev.key.keysym.mod);
+        }
+        continue;
+      }
       if ((ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP) && !ev.key.repeat) {
         int down = ev.type == SDL_KEYDOWN;
         SDL_Keycode k = ev.key.keysym.sym;
@@ -235,7 +342,19 @@ int main(int argc, char **argv) {
           else if (k == SDLK_LEFT || k == SDLK_RIGHT)
             load(&a,
                  (a.selected + (k == SDLK_RIGHT ? 1 : a.count - 1)) % a.count);
-          else if (k == SDLK_z)
+          else if (k == SDLK_F4 || k == SDLK_F6) {
+            event(&a, PANIC, 0, 0);
+            if (!editor_open(&a.editor, &a.catalog[a.selected], k == SDLK_F6))
+              snprintf(a.message, sizeof a.message, "Could not open source");
+          } else if (k == SDLK_F2)
+            a.macro_page = (a.macro_page + 1) % 4;
+          else if (k == SDLK_F3) {
+            int n = SDL_GetNumAudioDevices(0);
+            if (n > 0) {
+              a.output_index = (a.output_index + 1) % n;
+              open_output(&a, SDL_GetAudioDeviceName(a.output_index, 0));
+            }
+          } else if (k == SDLK_z)
             load(&a, a.selected);
           else if (k == SDLK_r)
             capture(&a);
@@ -248,7 +367,7 @@ int main(int argc, char **argv) {
         int x, y;
         SDL_GetMouseState(&x, &y);
         if (x >= 270 && x <= 880 && y >= 185 && y < 255) {
-          int k = y >= 232;
+          int k = (y >= 232) + 2 * a.macro_page;
           a.macros[k] = (x - 270) / 610.f;
           event(&a, MACRO, k, a.macros[k]);
         } else if (ev.type == SDL_MOUSEBUTTONDOWN && y >= 295 && y < 373 &&
@@ -265,11 +384,13 @@ int main(int argc, char **argv) {
     draw(&a, r, font);
     SDL_Delay(16);
   }
+  editor_close(&a.editor);
   blue_midi_close();
   if (a.capturing)
     capture(&a);
   SDL_CloseAudioDevice(a.device);
   blue_destroy(a.engine);
+  free(a.pending);
   free(a.recording);
   SDL_DestroyTexture(font);
   SDL_DestroyRenderer(r);

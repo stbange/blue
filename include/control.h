@@ -5,6 +5,11 @@ typedef struct {
   char folder[1024], name[128];
 } BluePreset;
 int blue_catalog(const char *root, BluePreset *items, int capacity);
+int blue_source_path(const char *folder, const char *preset, int script,
+                     char *path, size_t size);
+int blue_compile(BluePatch *out, const char *folder, const char *preset,
+                 const char *patch_text, const char *lua_text, char *error,
+                 size_t size);
 int blue_load(BluePatch *out, const char *folder, const char *preset,
               char *error, size_t size);
 int blue_write_wav(const char *path, const float *stereo, size_t frames,
