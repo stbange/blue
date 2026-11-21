@@ -27,7 +27,12 @@ def main():
             if sys.platform.startswith("linux"):
                 from Xlib import X, display
                 connection=display.Display()
-                window=next(w for w in connection.screen().root.query_tree().children if "Blue |" in str(w.get_wm_name()))
+                for attempt in range(100):
+                    windows=[w for w in connection.screen().root.query_tree().children if "Blue |" in str(w.get_wm_name())]
+                    if windows:break
+                    time.sleep(.1)
+                assert windows, "Blue window did not appear"
+                window=windows[-1]
                 window.set_input_focus(X.RevertToParent,X.CurrentTime)
                 connection.sync()
             w,h=ui.size();ui.click(w//2,h//2-160)

@@ -32,5 +32,6 @@ async function prepare({id, root, preset, patch, script}) {
   const ptr=module.ccall("author_load","number",["string","string"],[folder,preset]);
   if(!ptr) throw Error(module.UTF8ToString(module._author_error()));
   const buffer=module.HEAPU8.slice(ptr,ptr+module._author_size()).buffer;
-  postMessage({id,buffer,document,mapping},[buffer]);
+  const labels=Array.from({length:8},(_,i)=>module.UTF8ToString(module._author_label(i)));
+  postMessage({id,buffer,document,mapping,labels},[buffer]);
 }

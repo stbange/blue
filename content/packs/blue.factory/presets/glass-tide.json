@@ -21,8 +21,9 @@
       "inserts": [
         "lowpass"
       ],
-      "cutoff": 2200,
-      "space": 0.25
+      "cutoff": 450,
+      "space": 0.25,
+      "env_cutoff": 10
     },
     {
       "source": "fm",
@@ -38,5 +39,16 @@
     }
   ],
   "attack": 0.4,
-  "release": 1.2
+  "release": 1.2,
+  "envelope": [
+    {
+      "time": 0,
+      "value": 0.12
+    },
+    {
+      "time": 12,
+      "value": 1,
+      "curve": 1.6
+    }
+  ]
 }

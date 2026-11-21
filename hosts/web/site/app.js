@@ -46,6 +46,7 @@ function controls(){
   name=requested;$("name").textContent=name;$("document").value=prepared.document;$("mapping").value=prepared.mapping;
   $("lanes").replaceChildren(...JSON.parse(prepared.document).lanes.map((l,i)=>{const s=document.createElement("span");s.textContent="ABC"[i]+"  /  "+l.source;return s;}));
   for(const b of $("library").children)b.setAttribute("aria-current",String(b.textContent===name));
+  prepared.labels.forEach((label,i)=>{$("m"+i).parentNode.firstChild.nodeValue=label||mappings[i];});
   active.forEach((v,i)=>macro(i,v));
 }
 worker.onmessage=({data})=>{
