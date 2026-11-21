@@ -1,0 +1,6 @@
+schema: spec-driven
+context: |
+  Blue is a musical synthesizer targeting Windows, Linux, macOS, the Web via Emscripten, and WebXR.
+  Its core engine is written in C. Editable Lua scripts provide the scripted layer.
+  Graphics, sounds, scripts, and presets ship as external files beside the program.
+  Plan for at least 95% unit-test coverage and automated end-to-end tests.
