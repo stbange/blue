@@ -1,0 +1,8 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Blue · Hybrid synthesizer</title><link rel="stylesheet" href="style.css">
+<header><strong>Blue<span> / </span></strong><span>Hybrid synthesizer</span><button id="start">Start audio</button></header>
+<main><aside><h2>Patch library</h2><nav id="library"></nav><button id="midi">Connect MIDI</button><button id="xr">Enter WebXR</button></aside>
+<section><h1 id="name">Glass Tide</h1><canvas id="scope" width="900" height="120" aria-label="Output oscilloscope"></canvas><div id="lanes"></div>
+<div class="panel"><h2>Performance</h2><div id="macros"></div></div><div id="keyboard" aria-label="Keyboard"></div>
+<p id="status" role="status">Loading factory pack…</p><div class="tools"><button id="record">Record output</button><button id="save">Save revision</button><button id="reload">Reload files</button></div>
+<details><summary>Patch and Lua editor</summary><label>Patch JSON<textarea id="document" spellcheck="false"></textarea></label><label>Lua mapping<textarea id="mapping" spellcheck="false"></textarea></label><button id="apply">Apply edits</button><button id="export">Export revision</button><label>Import revision <input type="file" id="import" accept=".json"></label></details>
+</section></main><script type="module" src="app.js"></script></html>

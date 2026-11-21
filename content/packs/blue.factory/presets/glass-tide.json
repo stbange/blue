@@ -1,0 +1,42 @@
+{
+  "format": 1,
+  "sample": "glass",
+  "lanes": [
+    {
+      "source": "table",
+      "gain": 0.7,
+      "harmonics": [
+        [
+          1,
+          0.02
+        ],
+        [
+          1,
+          0.45,
+          0.24,
+          0.18,
+          0.09
+        ]
+      ],
+      "inserts": [
+        "lowpass"
+      ],
+      "cutoff": 2200,
+      "space": 0.25
+    },
+    {
+      "source": "fm",
+      "gain": 0.22,
+      "ratio": 2,
+      "depth": 2
+    },
+    {
+      "source": "grain",
+      "gain": 0.3,
+      "position": 0.4,
+      "scatter": 0.3
+    }
+  ],
+  "attack": 0.4,
+  "release": 1.2
+}

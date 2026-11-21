@@ -1,0 +1,11 @@
+{
+  "format": 1,
+  "lanes": [
+    {
+      "source": "sine",
+      "gain": 1
+    }
+  ],
+  "attack": 0,
+  "release": 0.02
+}

@@ -1,0 +1,30 @@
+{
+  "format": 1,
+  "lanes": [
+    {
+      "source": "fm",
+      "gain": 0.9,
+      "ratio": 3.5,
+      "depth": 3,
+      "inserts": [
+        "comb"
+      ],
+      "send": 0.18
+    }
+  ],
+  "envelope": [
+    {
+      "time": 0,
+      "value": 1
+    },
+    {
+      "time": 0.03,
+      "value": 0.65
+    },
+    {
+      "time": 1.5,
+      "value": 0.05
+    }
+  ],
+  "release": 0.5
+}

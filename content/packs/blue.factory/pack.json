@@ -1,0 +1,18 @@
+{
+  "id": "blue.factory",
+  "format": 1,
+  "luaApi": 1,
+  "version": "1.0",
+  "presets": {
+    "Glass Tide": "presets/glass-tide.json",
+    "Struck Wire": "presets/struck-wire.json",
+    "Paper Cloud": "presets/paper-cloud.json",
+    "Step Current": "presets/step-current.json",
+    "Calibration": "presets/calibration.json"
+  },
+  "assets": {
+    "glass": "samples/glass.wav",
+    "paper": "samples/paper.wav"
+  },
+  "script": "scripts/performance.lua"
+}
