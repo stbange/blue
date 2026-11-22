@@ -239,7 +239,7 @@ static float source(LaneState *s, const BlueLane *l, const BluePatch *p,
       for (int k = 0; k < GRAINS; k++)
         if (!s->grain[k].length) {
           s->grain[k] = (Grain){(l->position + noise(&s->rng) * l->scatter) *
-                                    p->sample_count,
+                                    p->sample_count + age * l->scan * p->sample_rate,
                                 step, 0, (int)fmax(2, l->size * rate)};
           break;
         }

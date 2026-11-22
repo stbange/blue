@@ -108,7 +108,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: npm ci --prefix tests/js && node tests/js/node_modules/c8/bin/c8.js --all --src hosts/web/site --include "hosts/web/site/*.js" --check-coverage --lines 95 --reporter=text node --experimental-vm-modules --test tests/js/units.mjs
+      - run: npm ci --prefix tests/js && node tests/js/node_modules/c8/bin/c8.js --all --src hosts/web/site --include "hosts/web/site/*.js" --check-coverage --lines 95 --reporter=text --reporter=json-summary --report-dir js-report node --experimental-vm-modules --test tests/js/units.mjs
+      - run: python tests/coverage_total.py coverage js-report/coverage-summary.json
       - run: pip install numpy && python tests/sonic.py coverage/bin/blue-render
       - run: npm ci --prefix tools/openspec && tools/openspec/node_modules/.bin/openspec validate --all --strict --no-interactive
   audio-parity:
@@ -126,3 +127,10 @@ jobs:
       - run: tar -xzf Blue-Linux.tar.gz
       - run: pip install numpy
       - run: python tests/parity.py package/blue-render site
+      - run: python tests/loose_assets.py package/blue-render site
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: python tests/listening.py package/blue-render listening
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Blue-listening-panel
+          path: listening/

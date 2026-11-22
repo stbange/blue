@@ -26,7 +26,7 @@ enum BlueCommand {
 typedef struct {
   int source, insert[2], root;
   float gain, pan, ratio, depth, cutoff, send, space, morph, density, size,
-      position, scatter, decay, env_cutoff;
+      position, scatter, decay, env_cutoff, scan;
   uint32_t type_key;
   float parameter;
   float harmonic[2][16];

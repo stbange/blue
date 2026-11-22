@@ -15,9 +15,10 @@ Unpack the distribution, keep the `content` directory beside the program and lau
 | Esc | Close the source editor, or quit from the keyboard |
 | Z | Reload the pack from disk |
 | R | Start recording, then save the stereo WAV on the next press |
+| [ / ] | Decrease or increase the second displayed macro by one eighth |
 | F5 / F9 | Save or recall performance controls |
 
-Recordings default to `Blue-recording.wav` in the launch directory. Use `--record-to PATH` to choose another destination. Use `--content-root DIR` to open a different tree containing `index.json` and its packs.
+Use `--preset "Calibration"` to choose the startup sound and `--user-dir DIR` to choose an existing writable settings directory. Recordings default to `Blue-recording.wav` in the launch directory. Use `--record-to PATH` to choose another destination. Use `--content-root DIR` to open a different tree containing `index.json` and its packs.
 
 ## Build from source
 
@@ -51,7 +52,7 @@ On Meta Quest 3, serve the same folder over HTTPS and open it in Meta Quest Brow
 
 A content root lists packs in `index.json`. Each pack has a `pack.json` mapping stable preset and asset IDs to relative file paths. Factory samples are original, deterministic PCM textures. The desktop font atlas is based on DejaVu Sans Mono. [Font credits](content/graphics/FONT-LICENSE.txt)
 
-A preset declares its lanes, optional sample, insert order, harmonic frames, envelope, LFOs, sends and seed. Up to 128 envelope points are supported. A v0 preset with a `volume` field loads with that value as its gain. The factory mapping shows the Lua API in a working instrument. [Factory presets](content/packs/blue.factory/presets/) · [Editable mapping](content/packs/blue.factory/scripts/performance.lua)
+Each lane accepts boolean `mute` and `solo` fields. Granular `scan` advances the source position in source seconds per real second, and `freeze: true` holds it. Root tuning controls sample and grain pitch. A preset declares its lanes, optional sample, insert order, harmonic frames, envelope, LFOs, sends and seed. Up to 128 envelope points are supported. A v0 preset with a `volume` field loads with that value as its gain. The factory mapping shows the Lua API in a working instrument. [Factory presets](content/packs/blue.factory/presets/) · [Editable mapping](content/packs/blue.factory/scripts/performance.lua)
 
 ```lua
 blue.lane(2, "fm", 0.25)
@@ -74,4 +75,4 @@ python tests/sonic.py build/bin/blue-render
 python tests/parity.py build/bin/blue-render build-web/bin
 ```
 
-The desktop E2E suite uses OS input and a virtual sound device. Browser and emulated XR suites use Playwright, an actual AudioWorklet and recorded stereo output. GitHub Actions builds and exercises the distributable programs. The active OpenSpec change tracks remaining release qualifications and the 95% project-wide unit coverage target. [CI workflow](.github/workflows/build.yml) · [Milestones](openspec/changes/add-blue-instrument/tasks.md) · [Requirements](openspec/changes/add-blue-instrument/specs/)
+The desktop E2E suite uses OS input and a virtual sound device. Browser and emulated XR suites use Playwright, an actual AudioWorklet and recorded stereo output. GitHub Actions builds and exercises the distributable programs. The active OpenSpec change tracks remaining release qualifications and the 95% first-party unit coverage gate. [Candidate measurements and open release gates](openspec/changes/add-blue-instrument/verification.md) · [CI workflow](.github/workflows/build.yml) · [Milestones](openspec/changes/add-blue-instrument/tasks.md) · [Requirements](openspec/changes/add-blue-instrument/specs/)

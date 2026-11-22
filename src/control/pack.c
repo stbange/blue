@@ -258,6 +258,8 @@ int blue_compile(BluePatch *out, const char *folder, const char *preset,
     LNUM(space, 0, 1);
     LNUM(morph, 0, 1);
     LNUM(position, 0, 1);
+    LNUM(scan, -4, 4);
+    if (cJSON_IsTrue(FIELD(o, "freeze"))) l->scan = 0;
     LNUM(scatter, 0, 1);
     LNUM(size, .001, 1);
     LNUM(density, 1, 256);

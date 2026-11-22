@@ -3,6 +3,8 @@ export async function enterXR(event, status, macro) {
     throw Error(
       "This browser does not provide immersive VR. The flat keyboard is available.",
     );
+  if (navigator.xr.isSessionSupported && !(await navigator.xr.isSessionSupported("immersive-vr")))
+    throw Error("Immersive VR unavailable. The flat keyboard is available.");
   const session = await navigator.xr.requestSession("immersive-vr");
   const canvas = document.createElement("canvas"),
     gl = canvas.getContext("webgl", { xrCompatible: true });

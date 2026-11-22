@@ -28,7 +28,7 @@ static char *settings_path(const char *org,const char *app){(void)org;(void)app;
 static int next_event(SDL_Event *ev){
     if(between){between=0;return 0;}between=1;
     memset(ev,0,sizeof *ev);
-    static const SDL_Keycode actions[]={SDLK_LEFT,SDLK_r,SDLK_h,SDLK_h,SDLK_r,SDLK_F5,SDLK_RIGHT,SDLK_F9,SDLK_z,SDLK_F2,SDLK_F3,SDLK_F4,SDLK_END,SDLK_HOME,SDLK_DOWN,SDLK_UP,SDLK_RIGHT,SDLK_LEFT,SDLK_s,SDLK_ESCAPE,SDLK_F6,SDLK_RETURN,SDLK_BACKSPACE,SDLK_DELETE,SDLK_ESCAPE};
+    static const SDL_Keycode actions[]={SDLK_LEFT,SDLK_r,SDLK_h,SDLK_h,SDLK_r,SDLK_F5,SDLK_RIGHT,SDLK_F9,SDLK_z,SDLK_F2,SDLK_F3,SDLK_F4,SDLK_END,SDLK_HOME,SDLK_DOWN,SDLK_UP,SDLK_RIGHT,SDLK_LEFT,SDLK_s,SDLK_ESCAPE,SDLK_F6,SDLK_RETURN,SDLK_BACKSPACE,SDLK_DELETE,SDLK_ESCAPE,SDLK_RIGHTBRACKET,SDLK_LEFTBRACKET};
     if(position<(int)(sizeof actions/sizeof *actions)){
         ev->type=position==3?SDL_KEYUP:SDL_KEYDOWN;ev->key.keysym.sym=actions[position];
         if(ev->key.keysym.sym==SDLK_s)ev->key.keysym.mod=KMOD_CTRL;

@@ -45,7 +45,7 @@ def main():
                     time.sleep(.1)
                 assert handle,"Blue window did not appear"
                 class WindowKeys:
-                    codes={"left":37,"right":39,"f5":116,"f9":120,"escape":27}
+                    codes={"left":37,"right":39,"f5":116,"f9":120,"escape":27,"[":219,"]":221}
                     def post(self,key,up):
                         code=self.codes.get(key,ord(key.upper()) if len(key)==1 else 0)
                         scan=user.MapVirtualKeyW(code,0)
@@ -57,11 +57,13 @@ def main():
                 keys=WindowKeys()
             else:
                 w,h=ui.size();ui.click(w//2,h//2-160)
+            for _ in range(4):keys.press("]")
             keys.press("f5")
             for _ in range(30):
                 if (root/"controls.txt").exists():break
                 time.sleep(.1)
             assert (root/"controls.txt").is_file(),"No performance state was saved"
+            assert float((root/"controls.txt").read_text().split()[2])==.5
             keys.press("right");time.sleep(.3);keys.press("f9");time.sleep(.3)
             if sys.platform.startswith("linux"):assert window.get_wm_name()=="Blue | Calibration",window.get_wm_name()
             if sys.platform=="win32":assert user.FindWindowW(None,"Blue | Calibration"),"Saved preset was not recalled"
@@ -78,13 +80,27 @@ def main():
             assert abs(freq-440)<10,(freq,len(signal))
             tail=max(map(abs,pcm[-int(rate*.03):]));assert tail<64,(tail,len(pcm),active[-1],rate)
             print(f"Desktop master recorded {len(pcm)} frames, {freq:.1f} Hz.")
+            # Reload a loose mapping into the same executable. Recall the saved half-trim.
+            baseline=root/"original.wav"
+            wav.replace(baseline)
+            script=app/"content/packs/blue.factory/scripts/performance.lua"
+            with script.open("a") as mapping:mapping.write("\nblue.route(2, 'gain', -1.75)\n")
+            keys.press("f9");time.sleep(.5)
+            keys.press("r");keys.keyDown("h");time.sleep(.35);keys.keyUp("h");time.sleep(.3);keys.press("r")
+            for _ in range(50):
+                if wav.exists() and wav.stat().st_size>2048:break
+                time.sleep(.1)
+            with wave.open(str(wav)) as f:
+                edited=array("h",f.readframes(f.getnframes()))
+            ratio=max(map(abs,edited))/max(map(abs,pcm))
+            assert .22 < ratio < .28, ("reloaded gain ratio",ratio)
             keys.press("escape");assert child.wait(timeout=10)==0
         finally:
             if child.poll() is None:child.terminate();child.wait(timeout=10)
             if os.getenv("BLUE_EVIDENCE"):
                 evidence=Path(os.environ["BLUE_EVIDENCE"])
                 evidence.mkdir(parents=True,exist_ok=True)
-                for f in (wav,root/"controls.txt"):
+                for f in (wav,root/"original.wav",root/"controls.txt"):
                     if f.exists():shutil.copy2(f,evidence)
 
 if __name__=="__main__":main()

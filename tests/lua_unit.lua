@@ -25,4 +25,14 @@ for line in pairs(info.activelines) do
   if hits[line] then covered = covered + 1 end
 end
 print(string.format("%s: %d/%d executable lines", filename, covered, eligible))
+for i=2,#arg do
+  if arg[i] ~= filename then
+    local untested = assert(loadfile(arg[i], "t", env))
+    local missed = 0
+    for _ in pairs(debug.getinfo(untested, "L").activelines) do missed = missed + 1 end
+    print(string.format("%s: 0/%d executable lines", arg[i], missed))
+    eligible = eligible + missed
+  end
+end
+print(string.format("Lua total %d/%d", covered, eligible))
 assert(eligible > 0 and 100 * covered >= 95 * eligible)

@@ -4,7 +4,7 @@ const fs = require("node:fs"),
 async function main() {
   const [dist, id, score, output] = process.argv.slice(2);
   const author = await require(path.resolve(dist, "author.js"))();
-  const root = path.resolve(dist, "content/packs/blue.factory");
+  const root = path.resolve(process.argv[6] || path.join(dist, "content/packs/blue.factory"));
   function copy(dir) {
     author.FS.mkdirTree("/pack/" + dir);
     for (const entry of fs.readdirSync(path.join(root, dir), {

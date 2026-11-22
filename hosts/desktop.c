@@ -360,7 +360,12 @@ int main(int argc, char **argv) {
               snprintf(a.message, sizeof a.message, "Could not open source");
           } else if (k == SDLK_F2)
             a.macro_page = (a.macro_page + 1) % 4;
-          else if (k == SDLK_F3) {
+          else if (k == SDLK_LEFTBRACKET || k == SDLK_RIGHTBRACKET) {
+            int index = 2 * a.macro_page + 1;
+            float value = a.macros[index] + (k == SDLK_RIGHTBRACKET ? .125f : -.125f);
+            a.macros[index] = SDL_clamp(value, 0.f, 1.f);
+            event(&a, MACRO, index, a.macros[index]);
+          } else if (k == SDLK_F3) {
             int n = SDL_GetNumAudioDevices(0);
             if (n > 0) {
               a.output_index = (a.output_index + 1) % n;

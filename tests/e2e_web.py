@@ -100,6 +100,19 @@ def main():
             expect(page.locator("#pack")).to_have_value("user/blue.factory")
             expect(page.get_by_role("status")).to_have_text("Playing Calibration")
             expect(page.locator("#mapping")).to_have_value(original+"\nblue.route(4, 'gain', -1)")
+            page.locator("#m3").fill("0.75")
+            page.get_by_role("button",name="Record output").click()
+            page.keyboard.down("h");page.wait_for_timeout(320);page.keyboard.up("h")
+            page.wait_for_timeout(190)
+            with page.expect_download() as edited:
+                page.get_by_role("button",name="Stop recording").click()
+            dim=evidence/"edited.wav";edited.value.save_as(dim)
+            def peak(path):
+                with wave.open(str(path)) as stream:
+                    return max(map(abs,array("h",stream.readframes(stream.getnframes()))))
+            ratio=peak(dim)/peak(wav)
+            assert .22 < ratio < .28, ("external Lua gain ratio",ratio)
+            page.locator("#m3").fill("0")
             if args.iwer:page.get_by_role("button",name="Record output").click()
             page.locator("#xr").click()
             if args.iwer:
