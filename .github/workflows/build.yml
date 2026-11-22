@@ -60,7 +60,7 @@ jobs:
   browser-e2e:
     env:
       BLUE_EVIDENCE: evidence
-    needs: web
+    needs: [web, native]
     runs-on: ubuntu-24.04
     container:
       image: mcr.microsoft.com/playwright/python:v1.62.0-noble
@@ -82,7 +82,15 @@ jobs:
           apt-get update -qq && apt-get install -qy pulseaudio
           pulseaudio --system -n --daemonize --exit-idle-time=-1 --disable-shm --load="module-native-protocol-unix socket=/tmp/blue-pulse auth-anonymous=1" --load="module-null-sink sink_name=blue rate=48000 channels=2"
           echo 'PULSE_SERVER=unix:/tmp/blue-pulse' >> "$GITHUB_ENV"
-      - if: matrix.surface != 'webxr'
+      - uses: actions/download-artifact@v4
+        if: matrix.surface == 'chromium'
+        with:
+          name: Blue-Linux
+      - if: matrix.surface == 'chromium'
+        run: |
+          tar -xzf Blue-Linux.tar.gz
+          python tests/e2e_web.py site --native-package package
+      - if: matrix.surface == 'firefox' || matrix.surface == 'webkit'
         run: python tests/e2e_web.py site --browser ${{ matrix.surface }}
       - uses: actions/setup-node@v4
         if: matrix.surface == 'webxr'

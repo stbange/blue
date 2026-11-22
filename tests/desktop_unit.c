@@ -28,7 +28,7 @@ static char *settings_path(const char *org,const char *app){(void)org;(void)app;
 static int next_event(SDL_Event *ev){
     if(between){between=0;return 0;}between=1;
     memset(ev,0,sizeof *ev);
-    static const SDL_Keycode actions[]={SDLK_LEFT,SDLK_r,SDLK_h,SDLK_h,SDLK_r,SDLK_F5,SDLK_RIGHT,SDLK_F9,SDLK_z,SDLK_F2,SDLK_F3,SDLK_F4,SDLK_END,SDLK_HOME,SDLK_DOWN,SDLK_UP,SDLK_RIGHT,SDLK_LEFT,SDLK_s,SDLK_ESCAPE,SDLK_F6,SDLK_RETURN,SDLK_BACKSPACE,SDLK_DELETE,SDLK_ESCAPE,SDLK_RIGHTBRACKET,SDLK_LEFTBRACKET};
+    static const SDL_Keycode actions[]={SDLK_LEFT,SDLK_r,SDLK_h,SDLK_h,SDLK_r,SDLK_F5,SDLK_RIGHT,SDLK_F9,SDLK_z,SDLK_F2,SDLK_F3,SDLK_F4,SDLK_END,SDLK_HOME,SDLK_DOWN,SDLK_UP,SDLK_RIGHT,SDLK_LEFT,SDLK_s,SDLK_ESCAPE,SDLK_F6,SDLK_RETURN,SDLK_BACKSPACE,SDLK_DELETE,SDLK_ESCAPE,SDLK_RIGHTBRACKET,SDLK_LEFTBRACKET,SDLK_F7};
     if(position<(int)(sizeof actions/sizeof *actions)){
         ev->type=position==3?SDL_KEYUP:SDL_KEYDOWN;ev->key.keysym.sym=actions[position];
         if(ev->key.keysym.sym==SDLK_s)ev->key.keysym.mod=KMOD_CTRL;
@@ -71,8 +71,10 @@ void blue_midi_read(BlueMidiSink sink,void *ctx){if(position==0)sink(ctx,WHEEL,0
 int main(int argc,char **argv){
     if(argc!=4)return 2;
     SDL_setenv("SDL_VIDEODRIVER","dummy",1);SDL_setenv("SDL_AUDIODRIVER","dummy",1);settings=argv[3];
-    char *args[]={argv[0],"--content-root",argv[1],"--record-to",argv[2]};
-    if(desktop_main(5,args)!=0 || !saw_audio)return 1;
+    char zip[2048];
+    snprintf(zip,sizeof zip,"%s/unit-export.zip",argv[3]);remove(zip);
+    char *args[]={argv[0],"--content-root",argv[1],"--record-to",argv[2],"--export-to",zip};
+    if(desktop_main(7,args)!=0 || !saw_audio)return 1;
     FILE *wav=fopen(argv[2],"rb");if(!wav)return 1;char id[4];int valid=fread(id,1,4,wav)==4 && !memcmp(id,"RIFF",4);fclose(wav);
     if(!valid)return 1;
     SDL_Init(SDL_INIT_VIDEO);
@@ -95,7 +97,7 @@ int main(int argc,char **argv){
     load(&a,0);load(&a,0);if(!a.pending)return 1;
     blue_event(a.engine,PANIC,0,0);float left[2048],right[2048];for(int i=0;i<16;i++)blue_render(a.engine,left,right,2048);
     apply_pending(&a);if(a.pending)return 1;blue_destroy(a.engine);
-    for(scenario=1;scenario<=5;scenario++){if(!desktop_main(5,args))return 1;SDL_Quit();}
-    args[2]="absent-pack";if(!desktop_main(5,args))return 1;SDL_Quit();
+    for(scenario=1;scenario<=5;scenario++){if(!desktop_main(7,args))return 1;SDL_Quit();}
+    args[2]="absent-pack";if(!desktop_main(7,args))return 1;SDL_Quit();
     return errors;
 }

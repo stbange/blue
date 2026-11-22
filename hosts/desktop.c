@@ -1,5 +1,6 @@
 #define SDL_MAIN_HANDLED
 #include "blue_queue.h"
+#include "archive.h"
 #include "control.h"
 #include "editor.h"
 #include "midi.h"
@@ -24,7 +25,7 @@ typedef struct {
   int pending_index;
   BluePreset catalog[128];
   int count;
-  const char *wav,*user_dir;
+  const char *wav,*user_dir,*export_to;
   char message[2048];
 } App;
 
@@ -191,7 +192,7 @@ static void draw(App *a, SDL_Renderer *r, SDL_Texture *font) {
         1);
   label(r, font, 28, 425, a->capturing ? "Recording master ..." : a->message,
         1);
-  label(r, font, 28, 452, "F4  Edit patch JSON       F6  Edit Lua mapping", 1);
+  label(r, font, 28, 452, "F4  Edit patch JSON       F6  Edit Lua mapping       F7  Export pack", 1);
   SDL_RenderPresent(r);
 }
 static void state(App *a, int save) {
@@ -264,10 +265,12 @@ int main(int argc, char **argv) {
            base ? base : "");
   SDL_free(base);
   App a = {0};
+  a.export_to = "Blue-pack.zip";
   a.wav = "Blue-recording.wav";const char *initial=NULL;
   for (int i = 1; i + 1 < argc; i += 2) {
     if (!strcmp(argv[i], "--content-root"))
       snprintf(root, sizeof root, "%s", argv[i + 1]);
+    else if(!strcmp(argv[i],"--export-to"))a.export_to=argv[i+1];
     else if(!strcmp(argv[i],"--user-dir"))a.user_dir=argv[i+1];
     else if(!strcmp(argv[i],"--preset"))initial=argv[i+1];
     else if (!strcmp(argv[i], "--record-to"))
@@ -371,6 +374,9 @@ int main(int argc, char **argv) {
               a.output_index = (a.output_index + 1) % n;
               open_output(&a, SDL_GetAudioDeviceName(a.output_index, 0));
             }
+          } else if (k == SDLK_F7) {
+            int ok = blue_export_pack(&a.catalog[a.selected], a.macros, a.export_to);
+            snprintf(a.message, sizeof a.message, "%s", ok ? "Pack exported" : "Export failed. Choose a new ZIP path.");
           } else if (k == SDLK_z)
             load(&a, a.selected);
           else if (k == SDLK_r)

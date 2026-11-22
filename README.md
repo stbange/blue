@@ -16,13 +16,14 @@ Unpack the distribution, keep the `content` directory beside the program and lau
 | Z | Reload the pack from disk |
 | R | Start recording, then save the stereo WAV on the next press |
 | [ / ] | Decrease or increase the second displayed macro by one eighth |
+| F7 | Export the active preset, its eight macro values, Lua mapping and sample dependencies to a new ZIP |
 | F5 / F9 | Save or recall performance controls |
 
 Use `--preset "Calibration"` to choose the startup sound and `--user-dir DIR` to choose an existing writable settings directory. Recordings default to `Blue-recording.wav` in the launch directory. Use `--record-to PATH` to choose another destination. Use `--content-root DIR` to open a different tree containing `index.json` and its packs.
 
 ## Build from source
 
-Use a C17 compiler, CMake 3.24 or later and Python 3 for the unit suite. The first configure downloads hash-pinned Lua, cJSON, SDL and PortMidi sources. On Linux install the ALSA and X11 development headers. Use Ninja or a single-configuration Makefiles generator for the paths below.
+Use a C17 compiler, CMake 3.24 or later and Python 3 for the unit suite. The first configure downloads hash-pinned Lua, cJSON, SDL, PortMidi and miniz sources. On Linux install the ALSA and X11 development headers. Use Ninja or a single-configuration Makefiles generator for the paths below.
 
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
@@ -44,7 +45,7 @@ cmake --build build-web
 python -m http.server 8000 --directory build-web/bin
 ```
 
-Open `http://localhost:8000`, click **Start audio**, then select a patch or play the keyboard. The editor can save a revision in browser storage and import or export a ZIP containing the patch, its Lua mapping and sound dependencies. Extract an exported pack and point the native app at its directory with `--content-root`.
+Open `http://localhost:8000`, click **Start audio**, then select a patch or play the keyboard. The editor can save a revision in browser storage and import or export a ZIP containing the patch, its Lua mapping and sound dependencies. To move a browser ZIP back to desktop, run `blue-pack import sound.zip MyLibrary`, then `Blue --content-root MyLibrary`. Desktop F7 writes `Blue-pack.zip` in the launch directory. Use `--export-to PATH` to choose a new ZIP destination. The bundled `blue-pack export PACK_DIR PRESET NEW.zip` command also exports a preset without opening an audio device.
 
 On Meta Quest 3, serve the same folder over HTTPS and open it in Meta Quest Browser. Start audio, then choose **Enter WebXR**. A trigger plays a note. Grip moves the nearest layer and changes the Motion macro. Turning your head changes the stereo position of each source.
 

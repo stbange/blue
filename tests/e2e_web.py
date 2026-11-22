@@ -1,6 +1,9 @@
 """Drive the packaged instrument on a nested origin and inspect its recorded master."""
 import argparse
 import os
+import json
+import shutil
+import subprocess
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -29,6 +32,7 @@ def main():
     parser.add_argument("--browser",default="chromium")
     parser.add_argument("--executable")
     parser.add_argument("--iwer",type=Path)
+    parser.add_argument("--native-package",type=Path)
     args=parser.parse_args()
     class PackServer(SimpleHTTPRequestHandler):
         missing_sample = False
@@ -96,6 +100,17 @@ def main():
                 page.locator("#export").click()
             zipfile=evidence/"calibration.zip"
             archive.value.save_as(zipfile)
+            if args.native_package:
+                tools=args.native_package.resolve()
+                content=Path(tmp)/"Desktop imported"
+                exported=Path(tmp)/"desktop-calibration.zip"
+                subprocess.run([tools/"blue-pack","import",zipfile,content],check=True)
+                pack=content/json.loads((content/"index.json").read_text())["packs"][0]
+                subprocess.run([tools/"blue-pack","export",pack,"Calibration",exported],check=True)
+                native_wav=evidence/"desktop-render.wav"
+                subprocess.run([tools/"blue-render",pack,"Calibration",native_wav],check=True)
+                shutil.copy2(exported,evidence/exported.name)
+                zipfile=exported
             page.locator("#import").set_input_files(zipfile)
             expect(page.locator("#pack")).to_have_value("user/blue.factory")
             expect(page.get_by_role("status")).to_have_text("Playing Calibration")
