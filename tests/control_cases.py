@@ -28,7 +28,7 @@ def main():
         (root/"index.json").write_text('{"packs":["../escape","absent","pack"]}');run("catalog",root,1);run("catalog",p,0)
         for key,value in [('format',2),('lanes',[]),('lanes',[{}]*4),('envelope',[dict(time=0)]*129),('envelope',[dict(time=1)]),('envelope',[dict(time=0),dict(time=0)]),('loop',3),('sample','absent'),('lfo',[32]),('loop_end',0),('gain','one')]:
             case=dict(doc);case[key]=value;put('patch.json',case);check(False)
-        for key,value in [('source','missing'),('harmonics',[[3]]),('harmonics',[[1]*17]),('inserts',['x']),('inserts',['bypass']*3),('root',-1)]:
+        for key,value in [('source','missing'),('harmonics',[[3]]),('harmonics',[[1]*17]),('inserts',['x']),('inserts',['bypass']*3),('root',-1),('mute','yes'),('solo',1)]:
             case=deepcopy(doc);case['lanes'][0][key]=value;put('patch.json',case);check(False)
         fixture()
         for text in ["invalid syntax ...","while true do end","local t={} for i=1,2000 do t[i]={"+','.join(['1']*100)+"} end","blue.route(9,'gain',1)","blue.lane(0,'fm',1)","blue.control(11,'bad')"]:

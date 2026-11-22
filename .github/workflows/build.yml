@@ -4,6 +4,8 @@ permissions:
   contents: read
 jobs:
   native:
+    env:
+      BLUE_EVIDENCE: evidence
     strategy:
       fail-fast: false
       matrix:
@@ -22,6 +24,8 @@ jobs:
       - run: cmake --build build --parallel 4
       - run: ctest --test-dir build --output-on-failure
       - run: cmake --install build --component Blue --prefix package
+      - run: python tests/distribution.py package
+      - run: cmake -E tar czf Blue-${{ runner.os }}.tar.gz package
       - run: pip install pyautogui==0.9.54
       - if: runner.os == 'Linux'
         run: xvfb-run -a python tests/e2e_desktop.py package/Blue
@@ -33,10 +37,13 @@ jobs:
         if: always()
         with:
           name: Blue-${{ runner.os }}
-          path: package/
+          path: Blue-${{ runner.os }}.tar.gz
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audio-desktop-${{ runner.os }}
+          path: evidence/
   web:
-    env:
-      BLUE_HEADED: "1"
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -45,11 +52,14 @@ jobs:
           version: 4.0.20
       - run: emcmake cmake -S . -B build-web -G Ninja -DCMAKE_BUILD_TYPE=Release
       - run: cmake --build build-web --parallel 4
+      - run: python tests/distribution.py build-web/bin --web
       - uses: actions/upload-artifact@v4
         with:
           name: Blue-Web
           path: build-web/bin/
   browser-e2e:
+    env:
+      BLUE_EVIDENCE: evidence
     needs: web
     runs-on: ubuntu-24.04
     container:
@@ -78,6 +88,11 @@ jobs:
         run: |
           npm install --no-save iwer@2.8.0
           python tests/e2e_web.py site --iwer node_modules/iwer/build/iwer.min.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audio-${{ matrix.surface }}
+          path: evidence/
   unit-coverage:
     runs-on: ubuntu-24.04
     steps:
@@ -92,3 +107,18 @@ jobs:
       - run: npm ci --prefix tests/js && node tests/js/node_modules/c8/bin/c8.js --all --src hosts/web/site --include "hosts/web/site/*.js" --check-coverage --lines 95 --reporter=text node --experimental-vm-modules --test tests/js/units.mjs
       - run: pip install numpy && python tests/sonic.py coverage/bin/blue-render
       - run: npm ci --prefix tools/openspec && tools/openspec/node_modules/.bin/openspec validate --all --strict --no-interactive
+  audio-parity:
+    needs: [native, web]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Blue-Linux
+      - uses: actions/download-artifact@v4
+        with:
+          name: Blue-Web
+          path: site
+      - run: tar -xzf Blue-Linux.tar.gz
+      - run: pip install numpy
+      - run: python tests/parity.py package/blue-render site

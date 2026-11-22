@@ -81,4 +81,10 @@ def main():
             keys.press("escape");assert child.wait(timeout=10)==0
         finally:
             if child.poll() is None:child.terminate();child.wait(timeout=10)
+            if os.getenv("BLUE_EVIDENCE"):
+                evidence=Path(os.environ["BLUE_EVIDENCE"])
+                evidence.mkdir(parents=True,exist_ok=True)
+                for f in (wav,root/"controls.txt"):
+                    if f.exists():shutil.copy2(f,evidence)
+
 if __name__=="__main__":main()

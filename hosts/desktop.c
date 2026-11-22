@@ -71,6 +71,7 @@ static void apply_pending(App *a) {
   blue_commit(a->engine);
   SDL_UnlockAudioDevice(a->device);
   a->selected = a->pending_index;
+  memcpy(a->macros, a->pending->macro, sizeof a->macros);
   memcpy(a->labels, a->pending->labels, sizeof a->labels);
   if(a->window){char title[200];snprintf(title,sizeof title,"Blue | %s",a->catalog[a->selected].name);SDL_SetWindowTitle(a->window,title);}
   snprintf(a->message, sizeof a->message, "Loaded %s",
@@ -80,7 +81,7 @@ static void apply_pending(App *a) {
   free(a->pending);
   a->pending = NULL;
 }
-static void load(App *a, int which) {
+static void load_controls(App *a, int which, const float *values) {
   BluePatch *p = malloc(sizeof *p);
   if (!p)
     return;
@@ -89,6 +90,7 @@ static void load(App *a, int which) {
     free(p);
     return;
   }
+  if (values) memcpy(p->macro, values, sizeof p->macro);
   free(a->pending);
   a->pending = p;
   a->pending_index = which;
@@ -97,6 +99,7 @@ static void load(App *a, int which) {
     snprintf(a->message, sizeof a->message,
              "Waiting for the previous notes to release");
 }
+static void load(App *a, int which) { load_controls(a, which, NULL); }
 static void capture(App *a) {
   SDL_LockAudioDevice(a->device);
   int save = a->capturing;
@@ -201,16 +204,19 @@ static void state(App *a, int save) {
   FILE *f = fopen(path, save ? "w" : "r");
   if (!f)
     return;
-  if (save)
-    fprintf(f, "%d %.9g %.9g\n", a->selected, a->macros[0], a->macros[1]);
-  else {
-    int s;
-    float m, n;
-    if (fscanf(f, "%d %f %f", &s, &m, &n) == 3 && s >= 0 && s < a->count &&
-        m >= 0 && m <= 1 && n >= 0 && n <= 1) {
-      a->macros[0] = m;
-      a->macros[1] = n;
-      load(a, s);
+  if (save) {
+    fprintf(f, "%d", a->selected);
+    for (int i = 0; i < 8; i++) fprintf(f, " %.9g", a->macros[i]);
+    fputc('\n', f);
+  } else {
+    int selected;
+    float values[8] = {0};
+    if (fscanf(f, "%d", &selected) == 1 && selected >= 0 && selected < a->count) {
+      int count = 0;
+      while (count < 8 && fscanf(f, "%f", &values[count]) == 1 &&
+             values[count] >= 0 && values[count] <= 1) count++;
+      /* Earlier builds stored the first two macros. */
+      if (count == 8 || (count == 2 && feof(f))) load_controls(a, selected, values);
     }
   }
   fclose(f);

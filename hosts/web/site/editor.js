@@ -42,6 +42,11 @@ export function mountEditor(container, documentText, apply) {
         lane.source = v;
       },
     );
+    option(box, "Audition", ["mix", "mute", "solo"],
+      lane.mute ? "mute" : lane.solo ? "solo" : "mix", (mode) => {
+        lane.mute = mode === "mute";
+        lane.solo = mode === "solo";
+      });
     numeric(box, "Level", lane.gain ?? (i === 0 ? 1 : 0), 0, 2, 0.01, (v) => {
       lane.gain = v;
     });

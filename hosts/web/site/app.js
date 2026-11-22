@@ -157,9 +157,8 @@ function controls() {
   prepared.labels.forEach((label, i) => {
     $("m" + i).parentNode.firstChild.nodeValue = label || mappings[i];
   });
-  (active ?? JSON.parse(prepared.document).macros ?? Array(8).fill(0)).forEach(
-    (v, i) => macro(i, v),
-  );
+  const initial = active ?? JSON.parse(prepared.document).macros ?? [];
+  for (let i = 0; i < 8; i++) macro(i, initial[i] ?? 0);
 }
 worker.onmessage = ({ data }) => {
   if (data.id !== serial) return;

@@ -22,6 +22,7 @@ static void timing(int rate, int block) {
   CHECK(!blue_commit(e));
   float l[511], r[511];
   int crosses = 0;
+  double first = 0, final = 0;
   float last = 0;
   for (int pos = 0; pos < rate;) {
     int n = block;
@@ -33,12 +34,16 @@ static void timing(int rate, int block) {
       if (pos + k < 137)
         CHECK(l[k] == 0);
       CHECK(l[k] == r[k]);
-      if (last < 0 && l[k] >= 0)
+      if (last < 0 && l[k] >= 0) {
+        final = pos + k - 1 - last / (l[k] - last);
+        if (!crosses) first = final;
         crosses++;
+      }
       last = l[k];
     }
     pos += n;
   }
+  CHECK(fabs(1200 * log2((crosses - 1) * rate / (final - first) / 440.0)) < 1);
   CHECK(abs(crosses - (int)(440. * (rate - 138) / rate)) <= 1);
   BlueEvent off = {3, NOTE_OFF, 69, 0};
   blue_timeline(e, l, r, 1, &off, 1);

@@ -371,6 +371,20 @@ int blue_compile(BluePatch *out, const char *folder, const char *preset,
   lua_close(L);
   if (rc)
     goto end;
+  int solo = 0;
+  for (int i = 0; i < cJSON_GetArraySize(lanes); i++) {
+    cJSON *lane = cJSON_GetArrayItem(lanes, i);
+    cJSON *mute = FIELD(lane, "mute"), *selected = FIELD(lane, "solo");
+    if ((mute && !cJSON_IsBool(mute)) || (selected && !cJSON_IsBool(selected)))
+      goto end;
+    solo |= cJSON_IsTrue(selected);
+  }
+  for (int i = 0; i < BLUE_LANES; i++) {
+    cJSON *lane = cJSON_GetArrayItem(lanes, i);
+    if (cJSON_IsTrue(FIELD(lane, "mute")) ||
+        (solo && !cJSON_IsTrue(FIELD(lane, "solo"))))
+      p->lane[i].gain = 0;
+  }
   blue_prepare_waves(p);
   *out = *p;
   ok = 1;

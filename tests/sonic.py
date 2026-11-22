@@ -34,4 +34,14 @@ with tempfile.TemporaryDirectory() as td:
     score=work/"notes.score";score.write_text("48000 96000\n0 0 69 1\n")
     (work/"patch.json").write_text(json.dumps(dict(format=1,lanes=[dict(source="ring",ratio=.25,gain=1)])))
     y=render(work,"test",score);fft=spectrum(y[48000:]);assert min(fft[330],fft[550])>100*fft[440]
+    lanes=[dict(source="sine",gain=.12,pan=-.5),dict(source="fm",gain=.1,pan=.3),dict(source="ring",gain=.08,pan=.8)]
+    def mix(layers):
+        (work/"patch.json").write_text(json.dumps(dict(format=1,lanes=layers)))
+        return render(work,"test",score)
+    combined=mix(lanes)
+    isolated=[]
+    for i in range(3):
+        isolated.append(mix([{**lane,"solo":i==j} for j,lane in enumerate(lanes)]))
+    assert np.max(abs(combined-sum(isolated))) < 4/32767
+    assert np.max(abs(mix([{**lane,"mute":j==1} for j,lane in enumerate(lanes)])-isolated[0]-isolated[2])) < 3/32767
     print("Four musical briefs and analytic ring-modulation spectrum passed.")
