@@ -66,6 +66,8 @@ jobs:
           name: Blue-Web
           path: site
       - run: pip install playwright==1.62.0 --break-system-packages
+      - if: matrix.surface == 'firefox'
+        run: chown "$(id -u):$(id -g)" /github/home
       - if: matrix.surface != 'webxr'
         run: python tests/e2e_web.py site --browser ${{ matrix.surface }}
       - uses: actions/setup-node@v4
@@ -89,4 +91,4 @@ jobs:
           node-version: 24
       - run: npm ci --prefix tests/js && node tests/js/node_modules/c8/bin/c8.js --all --src hosts/web/site --include "hosts/web/site/*.js" --check-coverage --lines 95 --reporter=text node --experimental-vm-modules --test tests/js/units.mjs
       - run: pip install numpy && python tests/sonic.py coverage/bin/blue-render
-      - run: npx --yes --package=@fission-ai/openspec@2.1.1 openspec validate --all --strict --no-interactive
+      - run: npm ci --prefix tools/openspec && tools/openspec/node_modules/.bin/openspec validate --all --strict --no-interactive

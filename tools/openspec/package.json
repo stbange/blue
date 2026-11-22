@@ -1,0 +1,7 @@
+{
+  "name": "blue-specification-tools",
+  "private": true,
+  "dependencies": {
+    "@fission-ai/openspec": "2.1.1"
+  }
+}
