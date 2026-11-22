@@ -29,7 +29,7 @@ jobs:
       - run: cmake -E make_directory installed
       - run: cmake -E chdir installed cmake -E tar xzf ../Blue-${{ runner.os }}.tar.gz
       - run: python tests/distribution.py installed/package
-      - run: pip install pyautogui==0.9.54
+      - run: pip install pyautogui==0.9.54 Pillow==11.3.0
       - if: runner.os == 'Linux'
         run: xvfb-run -a python tests/e2e_desktop.py installed/package/Blue
       - if: runner.os == 'Windows'
