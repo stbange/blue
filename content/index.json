@@ -1,1 +1,10 @@
-{"packs":["packs/blue.factory"]}
+{
+  "packs": [
+    "packs/blue.factory",
+    "packs/blue.formants",
+    "packs/blue.littoral",
+    "packs/blue.nocturnes",
+    "packs/blue.signals",
+    "packs/blue.soundstudy.tideline"
+  ]
+}

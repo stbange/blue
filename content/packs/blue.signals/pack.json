@@ -1,0 +1,15 @@
+{
+  "id": "blue.signals",
+  "format": 1,
+  "luaApi": 1,
+  "version": "1.0",
+  "presets": {
+    "Lantern Morse": "presets/lantern-morse.json",
+    "Prism Mallets": "presets/prism-mallets.json",
+    "Switchyard": "presets/switchyard.json",
+    "Quartz Steps": "presets/quartz-steps.json",
+    "Reed Telegraph": "presets/reed-telegraph.json",
+    "Last Transmission": "presets/last-transmission.json"
+  },
+  "script": "scripts/performance.lua"
+}

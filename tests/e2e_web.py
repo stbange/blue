@@ -100,6 +100,28 @@ def main():
             expect(page.locator("h1")).to_have_text("Calibration")
             page.get_by_role("button", name="Start audio").click()
             expect(page.get_by_role("status")).to_have_text("Playing Calibration")
+            for bank, preset in [
+                ("formants", "Alder Choir"),
+                ("littoral", "Pebble Choir"),
+                ("nocturnes", "Polar Veil"),
+                ("signals", "Quartz Steps"),
+            ]:
+                page.locator("#pack").select_option("packs/blue." + bank)
+                expect(page.locator("#library button")).to_have_count(6)
+                page.get_by_role("button", name=preset, exact=True).click()
+                expect(page.get_by_role("status")).to_have_text("Playing " + preset)
+            page.locator("#pack").select_option("packs/blue.soundstudy.tideline")
+            expect(page.get_by_role("status")).to_have_text("Playing Tideline")
+            page.locator("#import").set_input_files(
+                Path(__file__).resolve().parents[1]
+                / "examples/preset-library/littoral.zip"
+            )
+            expect(page.locator("#pack")).to_have_value("user/blue.littoral")
+            page.get_by_role("button", name="Harbor Lights", exact=True).click()
+            expect(page.get_by_role("status")).to_have_text("Playing Harbor Lights")
+            page.locator("#pack").select_option("packs/blue.factory")
+            page.get_by_role("button", name="Calibration").click()
+            expect(page.get_by_role("status")).to_have_text("Playing Calibration")
             page.locator("#midi").click()
             expect(page.get_by_role("status")).to_contain_text("denied")
             page.get_by_role("button", name="Record output").click()

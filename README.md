@@ -22,6 +22,10 @@ Unpack the distribution, keep the `content` directory beside the program and lau
 
 Use `--preset "Calibration"` to choose the startup sound and `--user-dir DIR` to choose an existing writable settings directory. Recordings default to `Blue-recording.wav` in the launch directory. Use `--record-to PATH` to choose another destination. Use `--content-root DIR` to open a different tree containing `index.json` and its packs.
 
+## Factory sounds
+
+Four additional six-preset banks join the original five entries and the Tideline sound study for a catalog of 30. Choose **Formants** for choirs and reeds, **Littoral** for granular coastal textures, **Nocturnes** for long cinematic swells, or **Signals** for pulsed and struck instruments. Each bank has four named performance controls. The listening guide includes a one-minute preview and an importable ZIP for each bank. [Audition and download the presets](examples/preset-library/README.md)
+
 ## Build from source
 
 Use a C17 compiler, CMake 3.24 or later and Python 3 for the unit suite. The first configure downloads hash-pinned Lua, cJSON, SDL, PortMidi and miniz sources. On Linux install the ALSA and X11 development headers. Use Ninja or a single-configuration Makefiles generator for the paths below.

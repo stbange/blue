@@ -149,6 +149,7 @@ jobs:
       - run: tar -xzf Blue-Linux.tar.gz
       - run: pip install numpy
       - run: python tests/parity.py package/blue-render site
+      - run: python tests/preset_library.py package site
       - run: python tests/loose_assets.py package/blue-render site
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: python tests/listening.py package/blue-render listening

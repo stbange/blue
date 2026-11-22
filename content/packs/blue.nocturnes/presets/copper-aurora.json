@@ -1,0 +1,87 @@
+{
+  "format": 1,
+  "gain": 0.1888,
+  "attack": 1.6,
+  "release": 5.1,
+  "lfo": [
+    0.053,
+    0.084,
+    0.13
+  ],
+  "delay": 0.73,
+  "feedback": 0.35,
+  "reverb": 0.59,
+  "macros": [
+    0.23,
+    0.21,
+    0.19,
+    0.22
+  ],
+  "lanes": [
+    {
+      "source": "saw",
+      "gain": 0.54,
+      "pan": -0.19,
+      "inserts": [
+        "lowpass"
+      ],
+      "cutoff": 1050
+    },
+    {
+      "source": "table",
+      "gain": 0.5,
+      "pan": 0.33,
+      "harmonics": [
+        [
+          1,
+          0.52,
+          0.29,
+          0.09
+        ],
+        [
+          0.72,
+          0.65,
+          0.62,
+          0.53,
+          0.46,
+          0.32,
+          0.19,
+          0.18,
+          0.12
+        ]
+      ],
+      "morph": 0.38,
+      "inserts": [
+        "lowpass"
+      ],
+      "cutoff": 1920
+    },
+    {
+      "source": "ring",
+      "gain": 0.24,
+      "pan": 0.04,
+      "ratio": 2.003,
+      "send": 0.18
+    }
+  ],
+  "echo_pitch": 7,
+  "envelope": [
+    {
+      "time": 0,
+      "value": 0.28
+    },
+    {
+      "time": 3.2,
+      "value": 0.67
+    },
+    {
+      "time": 9,
+      "value": 1,
+      "curve": 1.9
+    },
+    {
+      "time": 18,
+      "value": 0.79
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "id": "blue.formants",
+  "format": 1,
+  "luaApi": 1,
+  "version": "1.0",
+  "presets": {
+    "Alder Choir": "presets/alder-choir.json",
+    "Felt Harmonium": "presets/felt-harmonium.json",
+    "Amber Viola": "presets/amber-viola.json",
+    "Hollow Consort": "presets/hollow-consort.json",
+    "Porcelain Alto": "presets/porcelain-alto.json",
+    "Candle Organ": "presets/candle-organ.json"
+  },
+  "script": "scripts/performance.lua",
+  "assets": {
+    "bellows": "samples/bellows.wav"
+  }
+}

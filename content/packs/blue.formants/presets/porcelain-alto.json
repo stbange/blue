@@ -1,0 +1,97 @@
+{
+  "format": 1,
+  "gain": 0.1301,
+  "attack": 0.28,
+  "release": 4.6,
+  "lfo": [
+    0.092,
+    0.057,
+    0.101
+  ],
+  "delay": 0.55,
+  "feedback": 0.4,
+  "reverb": 0.64,
+  "macros": [
+    0.23,
+    0.21,
+    0.19,
+    0.22
+  ],
+  "lanes": [
+    {
+      "source": "table",
+      "gain": 0.69,
+      "pan": -0.13,
+      "harmonics": [
+        [
+          1,
+          0.11,
+          0.04,
+          0.06
+        ],
+        [
+          0.8,
+          0.08,
+          0.12,
+          0.02,
+          0.03,
+          0.11,
+          0.19,
+          0.29,
+          0.32,
+          0.15,
+          0.09
+        ]
+      ],
+      "morph": 0.43,
+      "inserts": [
+        "lowpass"
+      ],
+      "cutoff": 3300
+    },
+    {
+      "source": "fm",
+      "gain": 0.33,
+      "pan": 0.41,
+      "ratio": 3.999,
+      "depth": 2.7,
+      "decay": 6.1,
+      "send": 0.12
+    },
+    {
+      "source": "grain",
+      "gain": 0.29,
+      "pan": 0.07,
+      "position": 0.62,
+      "scan": -0.14,
+      "size": 0.076,
+      "density": 21,
+      "scatter": 0.11,
+      "root": 57,
+      "inserts": [
+        "highpass"
+      ],
+      "cutoff": 1200
+    }
+  ],
+  "sample": "bellows",
+  "echo_pitch": 7,
+  "envelope": [
+    {
+      "time": 0,
+      "value": 1
+    },
+    {
+      "time": 0.55,
+      "value": 0.63
+    },
+    {
+      "time": 5.8,
+      "value": 0.92
+    },
+    {
+      "time": 13,
+      "value": 0.76
+    }
+  ]
+}

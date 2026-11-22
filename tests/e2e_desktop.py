@@ -155,6 +155,10 @@ def main():
             assert float((root / "controls.txt").read_text().split()[2]) == 0.5
             keys.press("right")
             time.sleep(0.3)
+            if sys.platform.startswith("linux"):
+                assert window.get_wm_name() == "Blue | Alder Choir"
+            if sys.platform == "win32":
+                assert user.FindWindowW(None, "Blue | Alder Choir")
             keys.press("f9")
             time.sleep(0.3)
             if sys.platform.startswith("linux"):

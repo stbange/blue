@@ -1,0 +1,21 @@
+{
+  "id": "blue.littoral",
+  "format": 1,
+  "luaApi": 1,
+  "version": "1.0",
+  "presets": {
+    "Rain on Slate": "presets/rain-on-slate.json",
+    "Kelp Lanterns": "presets/kelp-lanterns.json",
+    "Pebble Choir": "presets/pebble-choir.json",
+    "Saltgrass": "presets/saltgrass.json",
+    "Harbor Lights": "presets/harbor-lights.json",
+    "Tidal Ink": "presets/tidal-ink.json"
+  },
+  "script": "scripts/performance.lua",
+  "assets": {
+    "slate": "samples/slate.wav",
+    "eelgrass": "samples/eelgrass.wav",
+    "stones": "samples/stones.wav",
+    "buoy": "samples/buoy.wav"
+  }
+}
