@@ -5,7 +5,7 @@ root=Path(__file__).resolve().parents[1]
 build=Path(sys.argv[1]).resolve()
 for file in build.rglob("*.gcda"):file.unlink()
 subprocess.run(["ctest","--test-dir",build,"--output-on-failure"],check=True)
-expected={p.resolve() for folder in ("src/engine","src/control","hosts/web") for p in (root/folder).glob("*.c")}
+expected={p.resolve() for folder in ("src/engine","src/control","hosts/web","hosts") for p in (root/folder).glob("*.c")}
 lines={}
 with tempfile.TemporaryDirectory() as out:
     for meta in build.rglob("*.gcno"):
@@ -23,7 +23,8 @@ groups={}
 for file,counts in sorted(lines.items()):
     covered=sum(v>0 for v in counts.values());total=len(counts)
     print(f"{file.relative_to(root)} {covered}/{total} lines")
-    group=groups.setdefault(file.parent.name,[0,0]);group[0]+=covered;group[1]+=total
+    name=("offline" if file.name=="render.c" else "desktop") if file.parent.name=="hosts" else file.parent.name
+    group=groups.setdefault(name,[0,0]);group[0]+=covered;group[1]+=total
 for name,(hits,total) in groups.items():
     print(f"{name} unit coverage {100*hits/total:.2f}%")
     assert hits*100>=95*total

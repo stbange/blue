@@ -10,6 +10,7 @@
 #define RATE 48000
 #define RECORD_FRAMES (60 * RATE)
 typedef struct {
+  SDL_Window *window;
   BlueEditor editor;
   BlueEngine *engine;
   BlueQueue queue;
@@ -23,7 +24,7 @@ typedef struct {
   int pending_index;
   BluePreset catalog[128];
   int count;
-  const char *wav;
+  const char *wav,*user_dir;
   char message[2048];
 } App;
 
@@ -71,6 +72,7 @@ static void apply_pending(App *a) {
   SDL_UnlockAudioDevice(a->device);
   a->selected = a->pending_index;
   memcpy(a->labels, a->pending->labels, sizeof a->labels);
+  if(a->window){char title[200];snprintf(title,sizeof title,"Blue | %s",a->catalog[a->selected].name);SDL_SetWindowTitle(a->window,title);}
   snprintf(a->message, sizeof a->message, "Loaded %s",
            a->catalog[a->selected].name);
   for (int k = 0; k < 8; k++)
@@ -190,11 +192,11 @@ static void draw(App *a, SDL_Renderer *r, SDL_Texture *font) {
   SDL_RenderPresent(r);
 }
 static void state(App *a, int save) {
-  char *dir = SDL_GetPrefPath("Blue", "Instrument");
+  char *dir = a->user_dir?SDL_strdup(a->user_dir):SDL_GetPrefPath("Blue", "Instrument");
   if (!dir)
     return;
   char path[2048];
-  snprintf(path, sizeof path, "%scontrols.txt", dir);
+  snprintf(path, sizeof path, "%s/controls.txt", dir);
   SDL_free(dir);
   FILE *f = fopen(path, save ? "w" : "r");
   if (!f)
@@ -256,14 +258,17 @@ int main(int argc, char **argv) {
            base ? base : "");
   SDL_free(base);
   App a = {0};
-  a.wav = "Blue-recording.wav";
+  a.wav = "Blue-recording.wav";const char *initial=NULL;
   for (int i = 1; i + 1 < argc; i += 2) {
     if (!strcmp(argv[i], "--content-root"))
       snprintf(root, sizeof root, "%s", argv[i + 1]);
+    else if(!strcmp(argv[i],"--user-dir"))a.user_dir=argv[i+1];
+    else if(!strcmp(argv[i],"--preset"))initial=argv[i+1];
     else if (!strcmp(argv[i], "--record-to"))
       a.wav = argv[i + 1];
   }
   a.count = blue_catalog(root, a.catalog, 128);
+  if(initial)for(int i=0;i<a.count;i++)if(!strcmp(initial,a.catalog[i].name)){a.selected=i;break;}
   if (!a.count) {
     fprintf(stderr, "No presets in %s\n", root);
     return 1;
@@ -271,6 +276,7 @@ int main(int argc, char **argv) {
   SDL_Window *win =
       SDL_CreateWindow("Blue | Hybrid synthesizer", SDL_WINDOWPOS_CENTERED,
                        SDL_WINDOWPOS_CENTERED, 920, 480, SDL_WINDOW_SHOWN);
+  a.window=win;
   SDL_Renderer *r = win ? SDL_CreateRenderer(win, -1, 0) : NULL;
   if (!r) {
     fprintf(stderr, "%s\n", SDL_GetError());

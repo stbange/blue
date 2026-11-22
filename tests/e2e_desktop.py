@@ -20,7 +20,7 @@ def main():
         exe=app/args.executable.name;shutil.copy2(args.executable,exe)
         shutil.copytree(args.executable.parent/"content",app/"content")
         wav=root/"master.wav"
-        child=subprocess.Popen([str(exe),"--record-to",str(wav)],cwd=root,env={**os.environ,"SDL_AUDIODRIVER":"dummy"})
+        child=subprocess.Popen([str(exe),"--record-to",str(wav),"--preset","Calibration","--user-dir",str(root)],cwd=root,env={**os.environ,"SDL_AUDIODRIVER":"dummy"})
         try:
             time.sleep(2)
             assert child.poll() is None
@@ -40,7 +40,7 @@ def main():
                 import ctypes
                 user=ctypes.windll.user32
                 for _ in range(100):
-                    handle=user.FindWindowW(None,"Blue | Hybrid synthesizer")
+                    handle=user.FindWindowW(None,"Blue | Calibration")
                     if handle:break
                     time.sleep(.1)
                 assert handle,"Blue window did not appear"
@@ -57,7 +57,14 @@ def main():
                 keys=WindowKeys()
             else:
                 w,h=ui.size();ui.click(w//2,h//2-160)
-            keys.press("left");keys.press("f5");keys.press("right");keys.press("f9")
+            keys.press("f5")
+            for _ in range(30):
+                if (root/"controls.txt").exists():break
+                time.sleep(.1)
+            assert (root/"controls.txt").is_file(),"No performance state was saved"
+            keys.press("right");time.sleep(.3);keys.press("f9");time.sleep(.3)
+            if sys.platform.startswith("linux"):assert window.get_wm_name()=="Blue | Calibration",window.get_wm_name()
+            if sys.platform=="win32":assert user.FindWindowW(None,"Blue | Calibration"),"Saved preset was not recalled"
             keys.press("r");keys.keyDown("h");time.sleep(.35);keys.keyUp("h");time.sleep(.9);keys.press("r")
             for i in range(30):
                 if wav.exists() and wav.stat().st_size>2048:break

@@ -67,7 +67,7 @@ blue.at(0.5, 1, 0.75)
 The unit suite exercises the engine, pack compiler, PCM import/export, factory Lua and Web C bindings. The following commands reproduce the unit coverage report with GCC and the cross-target audio comparisons with Python, NumPy and Node.js.
 
 ```sh
-cmake -S . -B coverage -G Ninja -DBLUE_COVERAGE=ON -DBLUE_DESKTOP=OFF
+cmake -S . -B coverage -G Ninja -DBLUE_COVERAGE=ON
 cmake --build coverage
 python tests/coverage.py coverage
 python tests/sonic.py build/bin/blue-render

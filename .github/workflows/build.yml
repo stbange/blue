@@ -45,25 +45,43 @@ jobs:
           version: 4.0.20
       - run: emcmake cmake -S . -B build-web -G Ninja -DCMAKE_BUILD_TYPE=Release
       - run: cmake --build build-web --parallel 4
-      - run: pip install playwright==1.55.0
-      - run: python -m playwright install --with-deps chromium firefox webkit
-      - run: sudo apt-get install -y pulseaudio xvfb && pulseaudio --start --exit-idle-time=-1 && pactl load-module module-null-sink sink_name=blue && pactl set-default-sink blue
-      - run: npm install --no-save iwer@2.8.0
-      - run: xvfb-run -a python tests/e2e_web.py build-web/bin --browser chromium --executable /usr/bin/google-chrome
-      - run: xvfb-run -a python tests/e2e_web.py build-web/bin --browser firefox
-      - run: xvfb-run -a python tests/e2e_web.py build-web/bin --browser webkit
-      - run: xvfb-run -a python tests/e2e_web.py build-web/bin --executable /usr/bin/google-chrome --iwer node_modules/iwer/build/iwer.min.js
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: Blue-Web
           path: build-web/bin/
-
+  browser-e2e:
+    needs: web
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright/python:v1.62.0-noble
+      options: --ipc=host
+    strategy:
+      fail-fast: false
+      matrix:
+        surface: [chromium, firefox, webkit, webxr]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Blue-Web
+          path: site
+      - run: pip install playwright==1.62.0 --break-system-packages
+      - if: matrix.surface != 'webxr'
+        run: python tests/e2e_web.py site --browser ${{ matrix.surface }}
+      - uses: actions/setup-node@v4
+        if: matrix.surface == 'webxr'
+        with:
+          node-version: 24
+      - if: matrix.surface == 'webxr'
+        run: |
+          npm install --no-save iwer@2.8.0
+          python tests/e2e_web.py site --iwer node_modules/iwer/build/iwer.min.js
   unit-coverage:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - run: cmake -S . -B coverage -G Ninja -DBLUE_DESKTOP=OFF -DBLUE_COVERAGE=ON
+      - run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+      - run: cmake -S . -B coverage -G Ninja -DBLUE_COVERAGE=ON
       - run: cmake --build coverage --parallel 4
       - run: python tests/coverage.py coverage
       - uses: actions/setup-node@v4
