@@ -1,9 +1,10 @@
 #define SDL_MAIN_HANDLED
-#include "blue_queue.h"
 #include "archive.h"
+#include "blue_queue.h"
 #include "control.h"
 #include "editor.h"
 #include "midi.h"
+#include "panel.h"
 #include <SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,6 +14,7 @@
 typedef struct {
   SDL_Window *window;
   BlueEditor editor;
+  BluePanel panel;
   BlueEngine *engine;
   BlueQueue queue;
   int macro_page, output_index;
@@ -25,7 +27,7 @@ typedef struct {
   int pending_index;
   BluePreset catalog[128];
   int count;
-  const char *wav,*user_dir,*export_to;
+  const char *wav, *user_dir, *export_to;
   char message[2048];
 } App;
 
@@ -74,7 +76,11 @@ static void apply_pending(App *a) {
   a->selected = a->pending_index;
   memcpy(a->macros, a->pending->macro, sizeof a->macros);
   memcpy(a->labels, a->pending->labels, sizeof a->labels);
-  if(a->window){char title[200];snprintf(title,sizeof title,"Blue | %s",a->catalog[a->selected].name);SDL_SetWindowTitle(a->window,title);}
+  if (a->window) {
+    char title[200];
+    snprintf(title, sizeof title, "Blue | %s", a->catalog[a->selected].name);
+    SDL_SetWindowTitle(a->window, title);
+  }
   snprintf(a->message, sizeof a->message, "Loaded %s",
            a->catalog[a->selected].name);
   for (int k = 0; k < 8; k++)
@@ -91,7 +97,8 @@ static void load_controls(App *a, int which, const float *values) {
     free(p);
     return;
   }
-  if (values) memcpy(p->macro, values, sizeof p->macro);
+  if (values)
+    memcpy(p->macro, values, sizeof p->macro);
   free(a->pending);
   a->pending = p;
   a->pending_index = which;
@@ -133,6 +140,25 @@ static void label(SDL_Renderer *r, SDL_Texture *font, int x, int y,
 }
 static void draw(App *a, SDL_Renderer *r, SDL_Texture *font) {
   rect(r, 0, 0, 920, 480, 13, 22, 30);
+  if (a->panel.doc) {
+    label(r, font, 24, 16, "Sound editor", 2);
+    for (int i = 0; i < PANEL_ROWS; i++) {
+      int y = 54 + i * 25;
+      char value[96];
+      panel_value(&a->panel, i, value, sizeof value);
+      if (a->panel.row == i)
+        rect(r, 18, y - 3, 862, 22, 37, 80, 89);
+      label(r, font, 30, y, panel_fields[i], 1);
+      label(r, font, 320, y, value, 1);
+    }
+    label(r, font, 24, 418,
+          "Up / Down  Select     Left / Right  Change     Ctrl+S  Apply and "
+          "save     Esc  Close",
+          1);
+    label(r, font, 24, 448, a->message, 1);
+    SDL_RenderPresent(r);
+    return;
+  }
   if (a->editor.text) {
     BlueEditor *e = &a->editor;
     label(r, font, 24, 12, e->script ? "Lua mapping" : "Patch document", 2);
@@ -192,11 +218,15 @@ static void draw(App *a, SDL_Renderer *r, SDL_Texture *font) {
         1);
   label(r, font, 28, 425, a->capturing ? "Recording master ..." : a->message,
         1);
-  label(r, font, 28, 452, "F4  Edit patch JSON       F6  Edit Lua mapping       F7  Export pack", 1);
+  label(r, font, 28, 452,
+        "F4  Edit patch JSON       F6  Edit Lua mapping       F7  Export pack  "
+        "  F8  Sound editor",
+        1);
   SDL_RenderPresent(r);
 }
 static void state(App *a, int save) {
-  char *dir = a->user_dir?SDL_strdup(a->user_dir):SDL_GetPrefPath("Blue", "Instrument");
+  char *dir = a->user_dir ? SDL_strdup(a->user_dir)
+                          : SDL_GetPrefPath("Blue", "Instrument");
   if (!dir)
     return;
   char path[2048];
@@ -207,17 +237,21 @@ static void state(App *a, int save) {
     return;
   if (save) {
     fprintf(f, "%d", a->selected);
-    for (int i = 0; i < 8; i++) fprintf(f, " %.9g", a->macros[i]);
+    for (int i = 0; i < 8; i++)
+      fprintf(f, " %.9g", a->macros[i]);
     fputc('\n', f);
   } else {
     int selected;
     float values[8] = {0};
-    if (fscanf(f, "%d", &selected) == 1 && selected >= 0 && selected < a->count) {
+    if (fscanf(f, "%d", &selected) == 1 && selected >= 0 &&
+        selected < a->count) {
       int count = 0;
       while (count < 8 && fscanf(f, "%f", &values[count]) == 1 &&
-             values[count] >= 0 && values[count] <= 1) count++;
+             values[count] >= 0 && values[count] <= 1)
+        count++;
       /* Earlier builds stored the first two macros. */
-      if (count == 8 || (count == 2 && feof(f))) load_controls(a, selected, values);
+      if (count == 8 || (count == 2 && feof(f)))
+        load_controls(a, selected, values);
     }
   }
   fclose(f);
@@ -266,18 +300,27 @@ int main(int argc, char **argv) {
   SDL_free(base);
   App a = {0};
   a.export_to = "Blue-pack.zip";
-  a.wav = "Blue-recording.wav";const char *initial=NULL;
+  a.wav = "Blue-recording.wav";
+  const char *initial = NULL;
   for (int i = 1; i + 1 < argc; i += 2) {
     if (!strcmp(argv[i], "--content-root"))
       snprintf(root, sizeof root, "%s", argv[i + 1]);
-    else if(!strcmp(argv[i],"--export-to"))a.export_to=argv[i+1];
-    else if(!strcmp(argv[i],"--user-dir"))a.user_dir=argv[i+1];
-    else if(!strcmp(argv[i],"--preset"))initial=argv[i+1];
+    else if (!strcmp(argv[i], "--export-to"))
+      a.export_to = argv[i + 1];
+    else if (!strcmp(argv[i], "--user-dir"))
+      a.user_dir = argv[i + 1];
+    else if (!strcmp(argv[i], "--preset"))
+      initial = argv[i + 1];
     else if (!strcmp(argv[i], "--record-to"))
       a.wav = argv[i + 1];
   }
   a.count = blue_catalog(root, a.catalog, 128);
-  if(initial)for(int i=0;i<a.count;i++)if(!strcmp(initial,a.catalog[i].name)){a.selected=i;break;}
+  if (initial)
+    for (int i = 0; i < a.count; i++)
+      if (!strcmp(initial, a.catalog[i].name)) {
+        a.selected = i;
+        break;
+      }
   if (!a.count) {
     fprintf(stderr, "No presets in %s\n", root);
     return 1;
@@ -285,7 +328,7 @@ int main(int argc, char **argv) {
   SDL_Window *win =
       SDL_CreateWindow("Blue | Hybrid synthesizer", SDL_WINDOWPOS_CENTERED,
                        SDL_WINDOWPOS_CENTERED, 920, 480, SDL_WINDOW_SHOWN);
-  a.window=win;
+  a.window = win;
   SDL_Renderer *r = win ? SDL_CreateRenderer(win, -1, 0) : NULL;
   if (!r) {
     fprintf(stderr, "%s\n", SDL_GetError());
@@ -322,6 +365,33 @@ int main(int argc, char **argv) {
       if (ev.type == SDL_WINDOWEVENT &&
           ev.window.event == SDL_WINDOWEVENT_FOCUS_LOST)
         event(&a, PANIC, 0, 0);
+      if (a.panel.doc) {
+        if (ev.type == SDL_MOUSEBUTTONDOWN) {
+          int x, y;
+          SDL_GetMouseState(&x, &y);
+          if (y >= 51 && y < 51 + PANEL_ROWS * 25) {
+            a.panel.row = (y - 51) / 25;
+            panel_change(&a.panel, x < 320 ? -1 : 1);
+          }
+        }
+        if (ev.type != SDL_KEYDOWN)
+          continue;
+        SDL_Keycode key = ev.key.keysym.sym;
+        if (key == SDLK_ESCAPE) {
+          panel_close(&a.panel);
+          editor_close(&a.editor);
+          continue;
+        }
+        if (key == SDLK_UP || key == SDLK_DOWN)
+          a.panel.row =
+              (a.panel.row + (key == SDLK_DOWN ? 1 : -1) + PANEL_ROWS) %
+              PANEL_ROWS;
+        if (key == SDLK_LEFT || key == SDLK_RIGHT)
+          panel_change(&a.panel, key == SDLK_RIGHT ? 1 : -1);
+        if (key != SDLK_s || !(ev.key.keysym.mod & (KMOD_CTRL | KMOD_GUI)) ||
+            !panel_copy(&a.panel, &a.editor))
+          continue;
+      }
       if (a.editor.text) {
         if (ev.type == SDL_TEXTINPUT)
           editor_input(&a.editor, ev.text.text);
@@ -357,7 +427,12 @@ int main(int argc, char **argv) {
           else if (k == SDLK_LEFT || k == SDLK_RIGHT)
             load(&a,
                  (a.selected + (k == SDLK_RIGHT ? 1 : a.count - 1)) % a.count);
-          else if (k == SDLK_F4 || k == SDLK_F6) {
+          else if (k == SDLK_F8) {
+            event(&a, PANIC, 0, 0);
+            if (editor_open(&a.editor, &a.catalog[a.selected], 0) &&
+                !panel_open(&a.panel, a.editor.text))
+              editor_close(&a.editor);
+          } else if (k == SDLK_F4 || k == SDLK_F6) {
             event(&a, PANIC, 0, 0);
             if (!editor_open(&a.editor, &a.catalog[a.selected], k == SDLK_F6))
               snprintf(a.message, sizeof a.message, "Could not open source");
@@ -365,7 +440,8 @@ int main(int argc, char **argv) {
             a.macro_page = (a.macro_page + 1) % 4;
           else if (k == SDLK_LEFTBRACKET || k == SDLK_RIGHTBRACKET) {
             int index = 2 * a.macro_page + 1;
-            float value = a.macros[index] + (k == SDLK_RIGHTBRACKET ? .125f : -.125f);
+            float value =
+                a.macros[index] + (k == SDLK_RIGHTBRACKET ? .125f : -.125f);
             a.macros[index] = SDL_clamp(value, 0.f, 1.f);
             event(&a, MACRO, index, a.macros[index]);
           } else if (k == SDLK_F3) {
@@ -375,8 +451,11 @@ int main(int argc, char **argv) {
               open_output(&a, SDL_GetAudioDeviceName(a.output_index, 0));
             }
           } else if (k == SDLK_F7) {
-            int ok = blue_export_pack(&a.catalog[a.selected], a.macros, a.export_to);
-            snprintf(a.message, sizeof a.message, "%s", ok ? "Pack exported" : "Export failed. Choose a new ZIP path.");
+            int ok =
+                blue_export_pack(&a.catalog[a.selected], a.macros, a.export_to);
+            snprintf(a.message, sizeof a.message, "%s",
+                     ok ? "Pack exported"
+                        : "Export failed. Choose a new ZIP path.");
           } else if (k == SDLK_z)
             load(&a, a.selected);
           else if (k == SDLK_r)
@@ -407,6 +486,7 @@ int main(int argc, char **argv) {
     draw(&a, r, font);
     SDL_Delay(16);
   }
+  panel_close(&a.panel);
   editor_close(&a.editor);
   blue_midi_close();
   if (a.capturing)

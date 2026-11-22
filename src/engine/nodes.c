@@ -8,6 +8,15 @@ static struct {
   const BlueNodeType *type;
 } registry[MAX_TYPES];
 static size_t count;
+void blue_initialize_nodes(void) {
+#ifdef BLUE_WITH_EXTENSIONS
+  static int initialized;
+  if (!initialized) {
+    initialized = 1;
+    blue_register_extensions();
+  }
+#endif
+}
 uint32_t blue_node_key(const char *name) {
   if (!name || !*name)
     return 0;

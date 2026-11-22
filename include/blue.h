@@ -30,12 +30,29 @@ typedef struct {
   uint32_t type_key;
   float parameter;
   float harmonic[2][16];
-  float tables[2][5][BLUE_TABLE_SIZE+1];
+  float tables[2][5][BLUE_TABLE_SIZE + 1];
 } BlueLane;
 typedef struct {
   float time, value, curve;
 } BluePoint;
+enum BlueDestination {
+  MOD_LEVEL,
+  MOD_PAN,
+  MOD_PITCH,
+  MOD_CUTOFF,
+  MOD_MORPH,
+  MOD_DENSITY,
+  MOD_SEND,
+  MOD_SPACE,
+  MOD_COUNT
+};
 typedef struct {
+  unsigned char source, lane, destination;
+  float amount;
+} BlueRoute;
+typedef struct {
+  unsigned route_count;
+  BlueRoute matrix[32];
   BlueLane lane[BLUE_LANES];
   float gain, attack, release, delay, feedback, reverb, echo_pitch, bpm;
   float macro[8], routes[8][4], lfo[3];
@@ -43,7 +60,10 @@ typedef struct {
   BluePoint envelope[BLUE_POINTS];
   unsigned seed;
   int step_count;
-  struct {float seconds,value;int macro;} steps[64];
+  struct {
+    float seconds, value;
+    int macro;
+  } steps[64];
   char labels[8][32];
   int sample_count, sample_rate, loop_start, loop_end;
   float sample[BLUE_SAMPLE];

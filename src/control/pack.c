@@ -44,11 +44,45 @@ static int route(lua_State *L) {
   s->patch->routes[index - 1][k] = (float)val;
   return 0;
 }
-static int scheduled(lua_State *L){
-  Script *s;lua_getallocf(L,(void **)&s);BluePatch *p=s->patch;
-  double sec=luaL_checknumber(L,1),v=luaL_checknumber(L,3);lua_Integer i=luaL_checkinteger(L,2);
-  if(p->step_count==64 || !isfinite(sec) || sec<0 || sec>3600 || i<1 || i>8 || !(v>=0 && v<=1) || (p->step_count && sec<p->steps[p->step_count-1].seconds))return luaL_error(L,"invalid scheduled macro");
-  int n=p->step_count++;p->steps[n].seconds=(float)sec;p->steps[n].value=(float)v;p->steps[n].macro=(int)i-1;return 0;
+static int modulation(lua_State *L) {
+  static const char *const sources[] = {
+      "macro1",   "macro2",   "macro3", "macro4", "macro5", "macro6",
+      "macro7",   "macro8",   "lfo1",   "lfo2",   "lfo3",   "envelope",
+      "velocity", "pressure", "wheel",  NULL};
+  static const char *const targets[] = {"level",  "pan",   "pitch",
+                                        "cutoff", "morph", "density",
+                                        "send",   "space", NULL};
+  Script *script;
+  lua_getallocf(L, (void **)&script);
+  BluePatch *patch = script->patch;
+  int source = luaL_checkoption(L, 1, NULL, sources),
+      lane = (int)luaL_checkinteger(L, 2);
+  int destination = luaL_checkoption(L, 3, NULL, targets);
+  double amount = luaL_checknumber(L, 4);
+  if (lane < 1 || lane > 3 || !isfinite(amount) || fabs(amount) > 48 ||
+      patch->route_count == 32)
+    return luaL_error(L,
+                      "invalid modulation route or 32-route budget exceeded");
+  patch->matrix[patch->route_count++] =
+      (BlueRoute){(unsigned char)source, (unsigned char)(lane - 1),
+                  (unsigned char)destination, (float)amount};
+  return 0;
+}
+static int scheduled(lua_State *L) {
+  Script *s;
+  lua_getallocf(L, (void **)&s);
+  BluePatch *p = s->patch;
+  double sec = luaL_checknumber(L, 1), v = luaL_checknumber(L, 3);
+  lua_Integer i = luaL_checkinteger(L, 2);
+  if (p->step_count == 64 || !isfinite(sec) || sec < 0 || sec > 3600 || i < 1 ||
+      i > 8 || !(v >= 0 && v <= 1) ||
+      (p->step_count && sec < p->steps[p->step_count - 1].seconds))
+    return luaL_error(L, "invalid scheduled macro");
+  int n = p->step_count++;
+  p->steps[n].seconds = (float)sec;
+  p->steps[n].value = (float)v;
+  p->steps[n].macro = (int)i - 1;
+  return 0;
 }
 static int panel(lua_State *L) {
   Script *s;
@@ -116,9 +150,15 @@ static char *read_text(const char *path) {
   fclose(f);
   return s;
 }
-static int unique_keys(const cJSON *o){
-  if(cJSON_IsObject(o))for(const cJSON *c=o->child;c;c=c->next)for(const cJSON *d=c->next;d;d=d->next)if(!strcmp(c->string,d->string))return 0;
-  for(const cJSON *c=o?o->child:NULL;c;c=c->next)if(!unique_keys(c))return 0;
+static int unique_keys(const cJSON *o) {
+  if (cJSON_IsObject(o))
+    for (const cJSON *c = o->child; c; c = c->next)
+      for (const cJSON *d = c->next; d; d = d->next)
+        if (!strcmp(c->string, d->string))
+          return 0;
+  for (const cJSON *c = o ? o->child : NULL; c; c = c->next)
+    if (!unique_keys(c))
+      return 0;
   return 1;
 }
 static cJSON *json(const char *path) {
@@ -201,16 +241,19 @@ int blue_compile(BluePatch *out, const char *folder, const char *preset,
     goto end;
   blue_defaults(p);
   pack = json(path);
-  if (!pack || !unique_keys(pack) || cJSON_GetNumberValue(FIELD(pack, "format")) != 1 ||
+  if (!pack || !unique_keys(pack) ||
+      cJSON_GetNumberValue(FIELD(pack, "format")) != 1 ||
       cJSON_GetNumberValue(FIELD(pack, "luaApi")) != 1)
     goto end;
   const char *rel = cJSON_GetStringValue(FIELD(FIELD(pack, "presets"), preset));
   if (!path_for(path, sizeof path, folder, rel))
     goto end;
   doc = patch_text ? cJSON_ParseWithOpts(patch_text, NULL, 1) : json(path);
-  double version=cJSON_GetNumberValue(FIELD(doc,"format"));
-  if(!doc || !unique_keys(doc) || (version!=0 && version!=1))goto end;
-  if(version==0)number(doc,"volume",&p->gain,0,1,&valid);
+  double version = cJSON_GetNumberValue(FIELD(doc, "format"));
+  if (!doc || !unique_keys(doc) || (version != 0 && version != 1))
+    goto end;
+  if (version == 0)
+    number(doc, "volume", &p->gain, 0, 1, &valid);
   cJSON *lanes = FIELD(doc, "lanes");
   int count = cJSON_GetArraySize(lanes);
   if (count < 1 || count > 3)
@@ -259,7 +302,8 @@ int blue_compile(BluePatch *out, const char *folder, const char *preset,
     LNUM(morph, 0, 1);
     LNUM(position, 0, 1);
     LNUM(scan, -4, 4);
-    if (cJSON_IsTrue(FIELD(o, "freeze"))) l->scan = 0;
+    if (cJSON_IsTrue(FIELD(o, "freeze")))
+      l->scan = 0;
     LNUM(scatter, 0, 1);
     LNUM(size, .001, 1);
     LNUM(density, 1, 256);
@@ -352,13 +396,16 @@ int blue_compile(BluePatch *out, const char *folder, const char *preset,
     goto end;
   }
   lua_newtable(L);
+  lua_pushcfunction(L, modulation);
+  lua_setfield(L, -2, "mod");
   lua_pushcfunction(L, route);
   lua_setfield(L, -2, "route");
   lua_pushcfunction(L, layer);
   lua_setfield(L, -2, "lane");
   lua_pushcfunction(L, panel);
   lua_setfield(L, -2, "control");
-  lua_pushcfunction(L,scheduled);lua_setfield(L,-2,"at");
+  lua_pushcfunction(L, scheduled);
+  lua_setfield(L, -2, "at");
   lua_setglobal(L, "blue");
   lua_sethook(L, budget, LUA_MASKCOUNT, 50000);
   int rc = luaL_loadbufferx(L, lua_text ? lua_text : src,

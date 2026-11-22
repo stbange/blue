@@ -27,7 +27,8 @@ struct BlueEngine {
   BluePatch patches[2];
   int current, staged, rate, voices, sustain, pos;
   unsigned late;
-  unsigned next_step;uint64_t patch_start;
+  unsigned next_step;
+  uint64_t patch_start;
   uint64_t clock;
   float bend, pressure, wheel, macro[8], target[8], spatial[3], distance[3];
   float echo[2][ECHO], room[2][8192];
@@ -36,20 +37,27 @@ struct BlueEngine {
 static float bound(float x, float lo, float hi) {
   return fminf(hi, fmaxf(lo, x));
 }
-void blue_prepare_waves(BluePatch *p){
-  for(int i=0;i<3;i++){
-    BlueLane *l=&p->lane[i];if(l->source!=TABLE)continue;
-    for(int frame=0;frame<2;frame++)for(int level=0;level<5;level++){
-      float *wave=l->tables[frame][level];
-      for(int k=0;k<BLUE_TABLE_SIZE;k++){
-        double sum=0;for(int h=0;h<(1<<level);h++)sum+=l->harmonic[frame][h]*sin(TAU*k*(h+1)/BLUE_TABLE_SIZE);
-        wave[k]=(float)sum;
+void blue_prepare_waves(BluePatch *p) {
+  for (int i = 0; i < 3; i++) {
+    BlueLane *l = &p->lane[i];
+    if (l->source != TABLE)
+      continue;
+    for (int frame = 0; frame < 2; frame++)
+      for (int level = 0; level < 5; level++) {
+        float *wave = l->tables[frame][level];
+        for (int k = 0; k < BLUE_TABLE_SIZE; k++) {
+          double sum = 0;
+          for (int h = 0; h < (1 << level); h++)
+            sum += l->harmonic[frame][h] *
+                   sin(TAU * k * (h + 1) / BLUE_TABLE_SIZE);
+          wave[k] = (float)sum;
+        }
+        wave[BLUE_TABLE_SIZE] = wave[0];
       }
-      wave[BLUE_TABLE_SIZE]=wave[0];
-    }
   }
 }
 void blue_defaults(BluePatch *p) {
+  blue_initialize_nodes();
   memset(p, 0, sizeof *p);
   p->gain = .22f;
   p->attack = .012f;
@@ -99,7 +107,9 @@ int blue_commit(BlueEngine *e) {
   if (!e->staged)
     return 0;
   e->staged = 0;
-  e->current = 1 - e->current;e->next_step=0;e->patch_start=e->clock;
+  e->current = 1 - e->current;
+  e->next_step = 0;
+  e->patch_start = e->clock;
   memcpy(e->target, e->patches[e->current].macro, sizeof e->target);
   return 1;
 }
@@ -208,12 +218,17 @@ static float source(LaneState *s, const BlueLane *l, const BluePatch *p,
     }
     return (float)x;
   }
-  case TABLE:{
-    int level=4;while(level>0 && (1<<level)*freq>=rate*.5)level--;
-    double address=ph*BLUE_TABLE_SIZE;int index=(int)address;float frac=(float)(address-index);
-    const float *a=l->tables[0][level],*b=l->tables[1][level];
-    float x=a[index]+frac*(a[index+1]-a[index]),y=b[index]+frac*(b[index+1]-b[index]);
-    return x+morph*(y-x);
+  case TABLE: {
+    int level = 4;
+    while (level > 0 && (1 << level) * freq >= rate * .5)
+      level--;
+    double address = ph * BLUE_TABLE_SIZE;
+    int index = (int)address;
+    float frac = (float)(address - index);
+    const float *a = l->tables[0][level], *b = l->tables[1][level];
+    float x = a[index] + frac * (a[index + 1] - a[index]),
+          y = b[index] + frac * (b[index + 1] - b[index]);
+    return x + morph * (y - x);
   }
   case FM:
   case RING: {
@@ -239,7 +254,8 @@ static float source(LaneState *s, const BlueLane *l, const BluePatch *p,
       for (int k = 0; k < GRAINS; k++)
         if (!s->grain[k].length) {
           s->grain[k] = (Grain){(l->position + noise(&s->rng) * l->scatter) *
-                                    p->sample_count + age * l->scan * p->sample_rate,
+                                        p->sample_count +
+                                    age * l->scan * p->sample_rate,
                                 step, 0, (int)fmax(2, l->size * rate)};
           break;
         }
@@ -301,9 +317,13 @@ static float envelope(const BluePatch *p, double t) {
 }
 void blue_render(BlueEngine *e, float *left, float *right, int frames) {
   for (int n = 0; n < frames; n++, e->clock++) {
-    BluePatch *schedule=&e->patches[e->current];
-    while(e->next_step<(unsigned)schedule->step_count && e->clock-e->patch_start>=(uint64_t)llround((double)schedule->steps[e->next_step].seconds*e->rate)){
-      unsigned step=e->next_step++;e->target[schedule->steps[step].macro]=schedule->steps[step].value;
+    BluePatch *schedule = &e->patches[e->current];
+    while (e->next_step < (unsigned)schedule->step_count &&
+           e->clock - e->patch_start >=
+               (uint64_t)llround((double)schedule->steps[e->next_step].seconds *
+                                 e->rate)) {
+      unsigned step = e->next_step++;
+      e->target[schedule->steps[step].macro] = schedule->steps[step].value;
     }
     float dry[2] = {0}, send[2] = {0}, room[2] = {0};
     for (int k = 0; k < 8; k++)
@@ -329,6 +349,23 @@ void blue_render(BlueEngine *e, float *left, float *right, int frames) {
       double freq = 440 * exp2((v->key - 69 + e->bend) / 12.);
       if (!v->released)
         v->held_env = envelope(p, age);
+      float lanes[BLUE_LANES][MOD_COUNT] = {{0}};
+      for (unsigned row = 0; row < p->route_count; row++) {
+        BlueRoute route = p->matrix[row];
+        unsigned id = route.source;
+        float input;
+        if (id < 8)
+          input = e->macro[id];
+        else if (id < 11)
+          input = (float)sin(TAU * age * p->lfo[id - 8]);
+        else if (id == 11)
+          input = v->held_env;
+        else if (id == 12)
+          input = v->velocity;
+        else
+          input = id == 13 ? e->pressure : e->wheel;
+        lanes[route.lane][route.destination] += input * route.amount;
+      }
       float amp = p->gain * v->amp * v->velocity * v->held_env *
                   bound(1 + mod[0], 0, 3);
       for (int i = 0; i < 3; i++) {
@@ -337,21 +374,31 @@ void blue_render(BlueEngine *e, float *left, float *right, int frames) {
           continue;
         float motion =
             p->lfo[i] > 0 ? (float)sin(TAU * age * p->lfo[i]) * .25f : 0;
-        float x = source(&v->lane[i], l, p, freq, e->rate,
-                         bound(l->morph + mod[1] + motion, 0, 1),
-                         bound(l->density * (1 + mod[3]), 1, 256), age);
+        const float *offset = lanes[i];
+        double pitch =
+            offset[MOD_PITCH]
+                ? fmin(.49 * e->rate,
+                       freq * exp2(bound(offset[MOD_PITCH], -48, 48) / 12.))
+                : freq;
+        float x = source(
+            &v->lane[i], l, p, pitch, e->rate,
+            bound(l->morph + mod[1] + motion + offset[MOD_MORPH], 0, 1),
+            bound(l->density * (1 + mod[3] + offset[MOD_DENSITY]), 1, 256),
+            age);
         for (int k = 0; k < 2; k++)
           x = insert(&v->lane[i], k, l->insert[k], x,
-                     l->cutoff * (1 + mod[2] + e->wheel + e->pressure + motion +
-                                  l->env_cutoff * v->held_env),
-                     freq, e->rate, e->clock);
-        x *= l->gain * amp * e->distance[i];
-        float pan = bound(l->pan + e->spatial[i], -1, 1);
+                     l->cutoff *
+                         (1 + mod[2] + e->wheel + e->pressure + motion +
+                          l->env_cutoff * v->held_env + offset[MOD_CUTOFF]),
+                     pitch, e->rate, e->clock);
+        x *=
+            l->gain * amp * e->distance[i] * bound(1 + offset[MOD_LEVEL], 0, 3);
+        float pan = bound(l->pan + e->spatial[i] + offset[MOD_PAN], -1, 1);
         for (int ch = 0; ch < 2; ch++) {
           float y = x * sqrtf(.5f * (1 + (ch ? pan : -pan)));
           dry[ch] += y;
-          send[ch] += y * l->send;
-          room[ch] += y * l->space;
+          send[ch] += y * bound(l->send + offset[MOD_SEND], 0, 1);
+          room[ch] += y * bound(l->space + offset[MOD_SPACE], 0, 1);
         }
       }
     }

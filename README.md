@@ -16,6 +16,7 @@ Unpack the distribution, keep the `content` directory beside the program and lau
 | Z | Reload the pack from disk |
 | R | Start recording, then save the stereo WAV on the next press |
 | [ / ] | Decrease or increase the second displayed macro by one eighth |
+| F8 | Open the graphical sound editor. Select a field with Up/Down, adjust it with Left/Right and save with Ctrl+S or Cmd+S |
 | F7 | Export the active preset, its eight macro values, Lua mapping and sample dependencies to a new ZIP |
 | F5 / F9 | Save or recall performance controls |
 
@@ -58,11 +59,14 @@ Each lane accepts boolean `mute` and `solo` fields. Granular `scan` advances the
 ```lua
 blue.lane(2, "fm", 0.25)
 blue.control(1, "Motion")
+blue.mod("pressure", 2, "pitch", 7)
 blue.route(1, "density", 2)
 blue.at(0.5, 1, 0.75)
 ```
 
-`blue.at` schedules a macro value in seconds after patch activation. Lua runs during preparation. A failed revision reports its source and leaves the current audio graph playable. A new sample-rate algorithm can register a versioned C node descriptor before starting audio. Register it in both the control and renderer builds. [C node interface](include/blue_node.h)
+`blue.mod(source, lane, destination, depth)` adds one of up to 32 routes. Sources include `macro1`–`macro8`, `lfo1`–`lfo3`, the envelope, velocity, pressure and wheel. Lane destinations include level, pan, pitch in semitones, cutoff, morph, density, delay send and reverb space. Use the IDs `send` and `space` for the last two. Modulation is evaluated per sample, with smoothed macro input.
+
+`blue.at` schedules a macro value in seconds after patch activation. Lua runs during preparation. A failed revision reports its source and leaves the current audio graph playable. A new sample-rate algorithm can register a versioned C node descriptor before starting audio. Configure native and web builds with `-DBLUE_EXTENSION_SOURCE=/absolute/path/nodes.c`. Define `blue_register_extensions(void)` there and call `blue_register_node` once for each static descriptor. The build links the extension into the authoring and rendering programs. [C node interface](include/blue_node.h)
 
 ## Verification
 
