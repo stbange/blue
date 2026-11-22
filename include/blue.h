@@ -47,7 +47,7 @@ enum BlueDestination {
   MOD_COUNT
 };
 typedef struct {
-  unsigned char source, lane, destination;
+  unsigned char source, lane, destination, control_rate;
   float amount;
 } BlueRoute;
 typedef struct {

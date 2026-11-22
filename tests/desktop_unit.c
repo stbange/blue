@@ -162,8 +162,9 @@ int main(int argc, char **argv) {
   char zip[2048];
   snprintf(zip, sizeof zip, "%s/unit-export.zip", argv[3]);
   remove(zip);
-  char *args[] = {argv[0], "--content-root", argv[1], "--record-to",
-                  argv[2], "--export-to", zip, "--user-dir", argv[3], "--preset", "Calibration"};
+  char *args[] = {argv[0], "--content-root", argv[1],      "--record-to",
+                  argv[2], "--export-to",    zip,          "--user-dir",
+                  argv[3], "--preset",       "Calibration"};
   if (desktop_main(11, args) != 0 || !saw_audio)
     return 1;
   FILE *wav = fopen(argv[2], "rb");
@@ -254,6 +255,20 @@ int main(int argc, char **argv) {
   BluePanel panel = {0};
   if (panel_open(&panel, "{}") ||
       !panel_open(&panel, "{\"lanes\":[{\"source\":\"sine\"}]}"))
+    return 1;
+  panel.row = 1;
+  panel_change(&panel, 1);
+  panel.row = 4;
+  panel_change(&panel, 1);
+  char fixture_path[2048];
+  snprintf(fixture_path, sizeof fixture_path, "%s/editor-gesture.json",
+           argv[3]);
+  char *expected = SDL_LoadFile(fixture_path, NULL);
+  cJSON *golden = cJSON_Parse(expected);
+  SDL_free(expected);
+  int same = cJSON_Compare(panel.doc, golden, 1);
+  cJSON_Delete(golden);
+  if (!same)
     return 1;
   for (int pass = 0; pass < 2; pass++)
     for (int i = 0; i < PANEL_ROWS; i++) {

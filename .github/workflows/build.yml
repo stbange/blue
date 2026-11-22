@@ -26,13 +26,16 @@ jobs:
       - run: cmake --install build --component Blue --prefix package
       - run: python tests/distribution.py package
       - run: cmake -E tar czf Blue-${{ runner.os }}.tar.gz package
+      - run: cmake -E make_directory installed
+      - run: cmake -E chdir installed cmake -E tar xzf ../Blue-${{ runner.os }}.tar.gz
+      - run: python tests/distribution.py installed/package
       - run: pip install pyautogui==0.9.54
       - if: runner.os == 'Linux'
-        run: xvfb-run -a python tests/e2e_desktop.py package/Blue
+        run: xvfb-run -a python tests/e2e_desktop.py installed/package/Blue
       - if: runner.os == 'Windows'
-        run: python tests/e2e_desktop.py package/Blue.exe
+        run: python tests/e2e_desktop.py installed/package/Blue.exe
       - if: runner.os == 'macOS'
-        run: python tests/e2e_desktop.py package/Blue
+        run: python tests/e2e_desktop.py installed/package/Blue
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -153,3 +156,16 @@ jobs:
         with:
           name: Blue-listening-panel
           path: listening/
+  desktop-profile:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: cmake -S . -B profile -G Ninja -DCMAKE_BUILD_TYPE=Release -DBLUE_DESKTOP=OFF
+      - run: cmake --build profile --target blue_benchmark
+      - run: python tests/profile.py profile/bin/blue_benchmark evidence
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Blue-desktop-profile
+          path: evidence/

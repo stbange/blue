@@ -457,7 +457,7 @@ int main(int argc, char **argv) {
                      ok ? "Pack exported"
                         : "Export failed. Choose a new ZIP path.");
           } else if (k == SDLK_z)
-            load(&a, a.selected);
+            load_controls(&a, a.selected, a.macros);
           else if (k == SDLK_r)
             capture(&a);
           else if (k == SDLK_F5 || k == SDLK_F9)

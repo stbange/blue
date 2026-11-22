@@ -6,7 +6,7 @@ class BlueProcessor extends AudioWorkletProcessor {
       {},
     ).exports;
     this.api._initialize();
-    if (!this.api.audio_init(sampleRate))
+    if (!this.api.audio_prepare(sampleRate, options.processorOptions.voices || 16))
       throw Error("Unsupported sample rate");
     this.heap = new Uint8Array(this.api.memory.buffer);
     this.l = new Float32Array(this.heap.buffer, this.api.audio_left(), 2048);
@@ -20,6 +20,8 @@ class BlueProcessor extends AudioWorkletProcessor {
           ptr: 0,
           id: data.id,
         };
+      } else if (Number.isFinite(data.frame)) {
+        this.api.audio_event_at(data.c, data.i, data.v, Math.max(0, Math.min(sampleRate, data.frame-currentFrame)));
       } else this.api.audio_event(data.c, data.i, data.v);
     };
   }

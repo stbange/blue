@@ -114,6 +114,10 @@ def main():
             check_audio(wav)
             page.get_by_text("Patch and Lua editor", exact=True).click()
             original = page.locator("#mapping").input_value()
+            earlier = json.loads(page.locator("#document").input_value())
+            earlier["format"] = 0
+            earlier["volume"] = earlier.pop("gain", 0.22)
+            page.locator("#document").fill(json.dumps(earlier))
             page.locator("#mapping").fill("this is invalid")
             page.get_by_role("button", name="Apply edits").click()
             expect(page.get_by_role("status")).to_contain_text("performance.lua")

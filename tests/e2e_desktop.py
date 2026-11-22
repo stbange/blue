@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -26,6 +27,15 @@ def main():
         shutil.copytree(args.executable.parent / "content", app / "content")
         wav = root / "master.wav"
 
+        trace = []
+        log = (root / "diagnostics.txt").open("w")
+
+        def snapshot():
+            if os.getenv("BLUE_EVIDENCE"):
+                from PIL import ImageGrab
+
+                ImageGrab.grab().save(root / "instrument.png")
+
         def start(preset):
             return subprocess.Popen(
                 [
@@ -38,6 +48,8 @@ def main():
                     str(root),
                 ],
                 cwd=root,
+                stdout=log,
+                stderr=log,
                 env={**os.environ, "SDL_AUDIODRIVER": "dummy"},
             )
 
@@ -114,6 +126,24 @@ def main():
             else:
                 w, h = ui.size()
                 ui.click(w // 2, h // 2 - 160)
+            original_keys = keys
+
+            class TracedKeys:
+                def __getattr__(self, action):
+                    def send(key):
+                        trace.append(
+                            {
+                                "monotonic_s": time.monotonic(),
+                                "action": action,
+                                "key": key,
+                            }
+                        )
+                        getattr(original_keys, action)(key)
+
+                    return send
+
+            keys = TracedKeys()
+            snapshot()
             for _ in range(4):
                 keys.press("]")
             keys.press("f5")
@@ -137,7 +167,20 @@ def main():
                 )
             keys.press("r")
             keys.keyDown("h")
-            time.sleep(0.35)
+            time.sleep(0.15)
+            # Reload a maximum-size PCM bank while the held calibration voice plays.
+            factory = app / "content/packs/blue.factory"
+            patch_file = factory / "presets/calibration.json"
+            old_patch = patch_file.read_bytes()
+            with wave.open(str(factory / "samples/glass.wav"), "wb") as large:
+                large.setparams((1, 2, 48000, 0, "NONE", ""))
+                large.writeframes(bytes(65536 * 2))
+            patch = json.loads(old_patch)
+            patch["sample"] = "glass"
+            patch_file.write_text(json.dumps(patch))
+            keys.press("z")
+            time.sleep(0.25)
+            patch_file.write_bytes(old_patch)
             keys.keyUp("h")
             time.sleep(0.9)
             keys.press("r")
@@ -151,6 +194,11 @@ def main():
             active = [i for i, x in enumerate(pcm) if abs(x) > 64]
             assert active and active[-1] - active[0] > rate * 0.2
             signal = pcm[active[0] : active[-1] + 1]
+            window_size = rate // 200
+            assert all(
+                max(map(abs, signal[i : i + window_size])) > 64
+                for i in range(0, len(signal) - window_size, window_size)
+            ), "Gap during live bank staging"
             freq = (
                 sum(a < 0 <= b for a, b in zip(signal, signal[1:])) * rate / len(signal)
             )
@@ -225,10 +273,19 @@ def main():
             if child.poll() is None:
                 child.terminate()
                 child.wait(timeout=10)
+            log.close()
+            (root / "input.json").write_text(json.dumps(trace, indent=2))
             if os.getenv("BLUE_EVIDENCE"):
                 evidence = Path(os.environ["BLUE_EVIDENCE"])
                 evidence.mkdir(parents=True, exist_ok=True)
-                for f in (wav, root / "original.wav", root / "controls.txt"):
+                for f in (
+                    wav,
+                    root / "original.wav",
+                    root / "controls.txt",
+                    root / "diagnostics.txt",
+                    root / "input.json",
+                    root / "instrument.png",
+                ):
                     if f.exists():
                         shutil.copy2(f, evidence)
 

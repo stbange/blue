@@ -8,6 +8,10 @@ typedef struct {
   unsigned used, coalesced, dropped;
   int emergency;
 } BlueQueue;
+void blue_queue_at(BlueQueue *queue, uint64_t frame, int command, int id,
+                   float value);
+void blue_queue_render(BlueQueue *queue, BlueEngine *engine, float *left,
+                       float *right, int frames);
 void blue_queue_push(BlueQueue *queue, int command, int id, float value);
 void blue_queue_drain(BlueQueue *queue, BlueEngine *engine);
 #endif

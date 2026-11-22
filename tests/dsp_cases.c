@@ -72,7 +72,24 @@ static int grains(BluePatch *p, int density, float size, int *peak) {
   }
   return starts;
 }
+static double filter_power(int mode, double frequency) {
+  LaneState s = {0};
+  double power = 0;
+  for (int i = 0; i < 8192; i++) {
+    float x = (float)sin(TAU * i * frequency / 48000);
+    float y = insert(&s, 0, mode, x, 600, 440, 48000, i);
+    if (i > 4096)
+      power += y * y;
+  }
+  return power;
+}
 int main(void) {
+  VERIFY(filter_power(LOWPASS, 100) > 100 * filter_power(LOWPASS, 5000));
+  VERIFY(filter_power(HIGHPASS, 5000) > 100 * filter_power(HIGHPASS, 100));
+  VERIFY(filter_power(BANDPASS, 600) > 8 * filter_power(BANDPASS, 5000));
+  LaneState drive = {0};
+  VERIFY(insert(&drive, 0, SHAPE, 1e20f, 0, 440, 48000, 0) == 1);
+
   BluePatch *p = malloc(sizeof *p);
   VERIFY(p);
   blue_defaults(p);

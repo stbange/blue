@@ -34,7 +34,12 @@ const mappings = [
 ];
 const held = new Set(),
   keys = "awsedftgyhujk";
-const event = (c, i, v) => node?.port.postMessage({ c, i, v });
+function event(c, i, v, when) {
+  if (!node) return;
+  const delta = Number.isFinite(when) ? (when-performance.now())/1000 : 0;
+  const frame = Math.round((context.currentTime + delta) * context.sampleRate) + 128;
+  node.port.postMessage({c, i, v, frame});
+}
 function note(i, on) {
   if (on === held.has(i)) return;
   if (on) held.add(i);
@@ -132,7 +137,7 @@ async function select(preset, revision, fromDisk = false) {
       patch: revision?.patch,
       script: revision?.script,
     });
-    active = revision?.macros;
+    active = revision?.macros ?? (fromDisk && preset === name ? [...values] : undefined);
   } catch (e) {
     status(e.message);
   }
@@ -206,7 +211,7 @@ async function start() {
     node = new AudioWorkletNode(context, "blue-render", {
       numberOfInputs: 0,
       outputChannelCount: [2],
-      processorOptions: { module },
+      processorOptions: { module, voices: /(?:^\?|&)voices=8(?:&|$)/.test(window.location?.search || "") ? 8 : 16 },
     });
     recorder = new AudioWorkletNode(context, "blue-recorder", {
       outputChannelCount: [2],

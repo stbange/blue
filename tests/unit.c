@@ -159,7 +159,7 @@ int main(int argc, char **argv) {
       diagnostic, sizeof diagnostic));
   CHECK(blue_compile(
       custom, argv[1], "Calibration", NULL,
-      "blue.mod('macro1',1,'pitch',12) blue.mod('lfo2',1,'pan',.1) "
+      "blue.mod('macro1',1,'pitch',12) blue.mod('lfo2',1,'pan',.1,'control') "
       "blue.mod('envelope',1,'cutoff',1) "
       "blue.mod('velocity',1,'density',1) blue.mod('pressure',1,'send',.4) "
       "blue.mod('wheel',1,'space',.1)",

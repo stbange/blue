@@ -68,6 +68,12 @@ test("sound editor applies typed controls, inserted effects and envelope points"
   [...container.querySelectorAll("button")].at(-1).click();
   assert.equal(result.envelope.length, 1);
   assert.equal(result.lanes[0].inserts.length, 2);
+  api.mountEditor(container,JSON.stringify({lanes:[{source:"sine"}]}),(text)=>result=JSON.parse(text));
+  const source=container.querySelector("select");source.value="saw";source.onchange();
+  const level=container.querySelector('input[type="number"]');level.value="1.05";level.onchange();
+  [...container.querySelectorAll("button")].at(-1).click();
+  const golden=JSON.parse(fs.readFileSync(new URL("../fixtures/editor-gesture.json",import.meta.url),"utf8"));
+  assert.deepEqual(result,golden);
 });
 test("author worker compiles complete data and rejects invalid or missing resources", async () => {
   const writes = new Map(),
@@ -142,10 +148,11 @@ test("worklet stages bounded chunks and recorder returns the live stereo samples
   const api = {
     memory,
     _initialize() {},
-    audio_init: () => 1,
+    audio_prepare: () => 1,
     audio_left: () => 0,
     audio_right: () => 8192,
     audio_event: (...args) => (queued = args),
+    audio_event_at: (...args) => (queued = args),
     audio_size: () => 16384,
     audio_stage: () => (available ? 32768 : 0),
     audio_commit: () => commits++,
@@ -160,6 +167,7 @@ test("worklet stages bounded chunks and recorder returns the live stereo samples
     AudioWorkletProcessor: Base,
     registerProcessor: (name, type) => (types[name] = type),
     sampleRate: 48000,
+    currentFrame: 1200,
     WebAssembly: {
       Instance: class {
         constructor() {
@@ -175,6 +183,8 @@ test("worklet stages bounded chunks and recorder returns the live stereo samples
   const send = (data) => audio.port.onmessage({ data });
   send({ c: 0, i: 69, v: 1 });
   assert.deepEqual(queued, [0, 69, 1]);
+  send({c:0,i:64,v:.5,frame:1237});
+  assert.deepEqual(queued,[0,64,.5,37]);
   send({ buffer: new ArrayBuffer(5) });
   send({ id: 3, buffer: new ArrayBuffer(16384) });
   audio.process([], out);
@@ -193,7 +203,7 @@ test("worklet stages bounded chunks and recorder returns the live stereo samples
   rec.port.onmessage({ data: false });
   assert.equal(messages[1].samples.length, 512);
   assert.equal(messages[1].samples[1], 0.5);
-  api.audio_init = () => 0;
+  api.audio_prepare = () => 0;
   assert.throws(() => new types["blue-render"]({ processorOptions: {} }));
 });
 test("XR lifecycle, note ownership and listener-relative controls", async () => {

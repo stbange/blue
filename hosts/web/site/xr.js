@@ -85,7 +85,7 @@ export async function enterXR(event, status, macro) {
       const n =
         60 + nearest(p) * 4 + (e.inputSource.handedness === "right" ? 12 : 0);
       notes.set(e.inputSource, n);
-      event(0, n, 0.85);
+      event(0, n, 0.85, e.timeStamp);
     });
     session.addEventListener("selectend", (e) => release(e.inputSource));
     session.addEventListener("squeezestart", (e) => {
@@ -112,8 +112,8 @@ export async function enterXR(event, status, macro) {
       positions.forEach(([x, y, z], i) => {
         const lateral = t[0] * x + t[4] * y + t[8] * z + t[12],
           depth = t[2] * x + t[6] * y + t[10] * z + t[14];
-        event(10, i, Math.hypot(lateral, depth));
-        event(8, i, lateral / Math.max(0.1, Math.hypot(lateral, depth)));
+        event(10, i, Math.hypot(lateral, depth), time);
+        event(8, i, lateral / Math.max(0.1, Math.hypot(lateral, depth)), time);
       });
       const layer = session.renderState.baseLayer;
       gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);

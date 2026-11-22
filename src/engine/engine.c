@@ -21,6 +21,7 @@ typedef struct {
   int key, active, released, pedal, generation;
   uint64_t start;
   float velocity, amp, held_env;
+  float modulation_value[32], modulation_slope[32];
   LaneState lane[3];
 } Voice;
 struct BlueEngine {
@@ -31,6 +32,7 @@ struct BlueEngine {
   uint64_t patch_start;
   uint64_t clock;
   float bend, pressure, wheel, macro[8], target[8], spatial[3], distance[3];
+  float spatial_target[3], distance_target[3];
   float echo[2][ECHO], room[2][8192];
   Voice voice[BLUE_VOICES];
 };
@@ -89,7 +91,7 @@ BlueEngine *blue_create(int rate, int voices) {
     e->rate = rate;
     e->voices = voices;
     for (int i = 0; i < 3; i++)
-      e->distance[i] = 1;
+      e->distance[i] = e->distance_target[i] = 1;
     blue_defaults(&e->patches[0]);
   }
   return e;
@@ -164,9 +166,9 @@ void blue_event(BlueEngine *e, int cmd, int id, float val) {
   } else if (cmd == MACRO && id >= 0 && id < 8)
     e->target[id] = bound(val, 0, 1);
   else if (cmd == POSITION && id >= 0 && id < 3)
-    e->spatial[id] = bound(val, -1, 1);
+    e->spatial_target[id] = bound(val, -1, 1);
   else if (cmd == DISTANCE && id >= 0 && id < 3)
-    e->distance[id] = 1.f / fmaxf(1, bound(val, 0, 100));
+    e->distance_target[id] = 1.f / fmaxf(1, bound(val, 0, 100));
   else if (cmd == BEND)
     e->bend = bound(val, -2, 2);
   else if (cmd == PRESSURE)
@@ -325,6 +327,10 @@ void blue_render(BlueEngine *e, float *left, float *right, int frames) {
       unsigned step = e->next_step++;
       e->target[schedule->steps[step].macro] = schedule->steps[step].value;
     }
+    for (int i = 0; i < 3; i++) {
+      e->spatial[i] += .02f * (e->spatial_target[i] - e->spatial[i]);
+      e->distance[i] += .02f * (e->distance_target[i] - e->distance[i]);
+    }
     float dry[2] = {0}, send[2] = {0}, room[2] = {0};
     for (int k = 0; k < 8; k++)
       e->macro[k] += (e->target[k] - e->macro[k]) * .01f;
@@ -352,6 +358,12 @@ void blue_render(BlueEngine *e, float *left, float *right, int frames) {
       float lanes[BLUE_LANES][MOD_COUNT] = {{0}};
       for (unsigned row = 0; row < p->route_count; row++) {
         BlueRoute route = p->matrix[row];
+        int interpolate = route.control_rate;
+        if (interpolate && ((e->clock - v->start) & 15u)) {
+          v->modulation_value[row] += v->modulation_slope[row];
+          lanes[route.lane][route.destination] += v->modulation_value[row];
+          continue;
+        }
         unsigned id = route.source;
         float input;
         if (id < 8)
@@ -364,7 +376,12 @@ void blue_render(BlueEngine *e, float *left, float *right, int frames) {
           input = v->velocity;
         else
           input = id == 13 ? e->pressure : e->wheel;
-        lanes[route.lane][route.destination] += input * route.amount;
+        float value = input * route.amount;
+        if (interpolate) {
+          v->modulation_slope[row] = (value - v->modulation_value[row]) / 16;
+          value = v->modulation_value[row] += v->modulation_slope[row];
+        }
+        lanes[route.lane][route.destination] += value;
       }
       float amp = p->gain * v->amp * v->velocity * v->held_env *
                   bound(1 + mod[0], 0, 3);

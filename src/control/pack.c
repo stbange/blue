@@ -59,13 +59,15 @@ static int modulation(lua_State *L) {
       lane = (int)luaL_checkinteger(L, 2);
   int destination = luaL_checkoption(L, 3, NULL, targets);
   double amount = luaL_checknumber(L, 4);
+  static const char *const rates[] = {"audio", "control", NULL};
+  int rate = luaL_checkoption(L, 5, "audio", rates);
   if (lane < 1 || lane > 3 || !isfinite(amount) || fabs(amount) > 48 ||
       patch->route_count == 32)
     return luaL_error(L,
                       "invalid modulation route or 32-route budget exceeded");
-  patch->matrix[patch->route_count++] =
-      (BlueRoute){(unsigned char)source, (unsigned char)(lane - 1),
-                  (unsigned char)destination, (float)amount};
+  patch->matrix[patch->route_count++] = (BlueRoute){
+      (unsigned char)source, (unsigned char)(lane - 1),
+      (unsigned char)destination, (unsigned char)rate, (float)amount};
   return 0;
 }
 static int scheduled(lua_State *L) {

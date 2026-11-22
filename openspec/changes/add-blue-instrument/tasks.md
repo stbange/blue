@@ -47,7 +47,7 @@ The proposed v1 totals **34–53 person-weeks of engineering**. This assumes exp
 - [x] 3.3 Add band-limited oscillators, editable harmonic frames, mipmapped wavetables and interpolation. Verify a morph preserves pitch and test alias energy with bin-centered, high-note sweeps against a band-limited reference. Pin accepted thresholds with the fixture.
 - [x] 3.4 Implement two-operator FM and ring modulation. Test sideband frequencies and depths with sine inputs. Verify the 440 Hz × 110 Hz ring-mod fixture produces 330 Hz and 550 Hz components.
 - [x] 3.5 Add the envelope evaluator, curved segments, tempo sync, sustain, loops and release. Unit-test 1- and 128-point edge cases, invalid point counts, tempo changes and a note-off inside a loop at an intra-block offset.
-- [ ] 3.6 Add three LFOs, eight macros and a modulation matrix with stable destination IDs, rate classes and smoothing. Connect the multimode filter, waveshaper and tuned resonator. Measure filter response, finite output under high drive, resonance pitch and recall of one macro feeding two destinations.
+- [x] 3.6 Add three LFOs, eight macros and a modulation matrix with stable destination IDs, rate classes and smoothing. Connect the multimode filter, waveshaper and tuned resonator. Measure filter response, finite output under high drive, resonance pitch and recall of one macro feeding two destinations.
 
 **Exit.** Load two independently programmed tonal patches, play a polyphonic phrase and capture distinct pitch, timbre and envelope behavior on native and Wasm. [Hybrid synthesis](specs/hybrid-synthesis/spec.md) · [Audio rendering](specs/audio-rendering/spec.md)
 
@@ -64,7 +64,7 @@ The proposed v1 totals **34–53 person-weeks of engineering**. This assumes exp
 
 ## 5. Native and web instruments
 
-- [ ] 5.1 Build the shared Lua panel model and implement native and web controls for preset browsing, lane solo, source selection, harmonic editing, envelope editing, routes and macros. Replay an editor gesture sequence and compare the resulting preset documents.
+- [x] 5.1 Build the shared Lua panel model and implement native and web controls for preset browsing, lane solo, source selection, harmonic editing, envelope editing, routes and macros. Replay an editor gesture sequence and compare the resulting preset documents.
 - [ ] 5.2 Complete native audio configuration, device loss and rate changes. Map Windows, macOS and Linux MIDI input to the common event stream and support keyboard playing. Verify note, velocity, pressure, bend, mod wheel and sustain with virtual MIDI endpoints and one real controller.
 - [x] 5.3 Add writable user saves, pack import/export and live stereo WAV recording with file I/O off the audio thread. Export a desktop patch, import it in the browser, reload the page, export it back and verify parameters, assets and audio.
 - [x] 5.4 Package a portable executable with adjacent content on each native OS and a static web folder with loose assets. Verify inventory, build-input and binary-content checks exclude embedded factory assets. Launch distributions from paths with spaces, a different working directory and a nested web URL.
@@ -76,7 +76,7 @@ The proposed v1 totals **34–53 person-weeks of engineering**. This assumes exp
 ## 6. WebXR performance
 
 - [x] 6.1 Detect immersive support, enter from a user gesture and connect the session to the existing engine. Verify supported, absent and denied runtimes all leave a working instrument.
-- [ ] 6.2 Build the three-source scene, controller picking, trigger notes, grip placement and macro binding. Feed timestamped commands to the same parameter IDs as the flat editor. Replay controller poses and verify the resulting parameter values and releases.
+- [x] 6.2 Build the three-source scene, controller picking, trigger notes, grip placement and macro binding. Feed timestamped commands to the same parameter IDs as the flat editor. Replay controller poses and verify the resulting parameter values and releases.
 - [x] 6.3 Implement optional listener-relative panning and distance gain. With one dry sustained lane, verify left/right energy changes with source position and head rotation. Verify spatial bypass recalls the saved stereo pan.
 - [x] 6.4 Automate the full XR journey with IWER and Playwright. Capture actual engine output while entering, playing, moving the source and exiting. Disconnect a held controller and assert its note releases. Confirm the flat editor retains the patch and last macro value.
 - [ ] 6.5 Run the release journey on the selected physical headset. Record controller reach, tracking and audio continuity through entry, exit and session interruption, plus ten minutes of the agreed performance profile.
@@ -86,7 +86,7 @@ The proposed v1 totals **34–53 person-weeks of engineering**. This assumes exp
 ## 7. Release qualification
 
 - [x] 7.1 Run the whole unit-only matrix and gate each coverage group and total at ≥95% executable lines. Publish the source inventory, covered/eligible counts and branch reports. Verify a real uncovered host file appears in its owning report.
-- [ ] 7.2 Run all packaged native, browser and XR E2E suites from clean installs. Exercise recall of a prior supported document, a failed pack activation and recovery. Attach audio, input trace, diagnostics and screenshots from the same build.
+- [x] 7.2 Run all packaged native, browser and XR E2E suites from clean installs. Exercise recall of a prior supported document, a failed pack activation and recovery. Attach audio, input trace, diagnostics and screenshots from the same build.
 - [ ] 7.3 Run optimized ten-minute performance trials on the recorded desktop and headset profiles, plus a soak with parameter floods and repeated reloads. Publish p99 DSP time, block period, voice/grain counts, peak memory and capture continuity.
 - [ ] 7.4 Loudness-match the four original reference renders and conduct the three-listener review. Record scores by patch and attribute, compare them with the published target, and repeat failed cases after adjustments. If a licensed Absynth reference is available, run the matched blind comparison described in the design.
 - [ ] 7.5 Build desktop folders and the static site from the tagged candidate, verify contents and run the install smoke on those exact artifacts. Publish supported OS/browser/device versions, pack/API versions and the measured capability results in the release record.
