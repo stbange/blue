@@ -77,7 +77,11 @@ jobs:
           path: site
       - run: pip install playwright==1.62.0 --break-system-packages
       - if: matrix.surface == 'firefox'
-        run: chown "$(id -u):$(id -g)" /github/home
+        run: |
+          chown "$(id -u):$(id -g)" /github/home
+          apt-get update -qq && apt-get install -qy pulseaudio
+          pulseaudio --system -n --daemonize --exit-idle-time=-1 --disable-shm --load="module-native-protocol-unix socket=/tmp/blue-pulse auth-anonymous=1" --load="module-null-sink sink_name=blue rate=48000 channels=2"
+          echo 'PULSE_SERVER=unix:/tmp/blue-pulse' >> "$GITHUB_ENV"
       - if: matrix.surface != 'webxr'
         run: python tests/e2e_web.py site --browser ${{ matrix.surface }}
       - uses: actions/setup-node@v4
