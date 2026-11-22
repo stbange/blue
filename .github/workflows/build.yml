@@ -157,7 +157,6 @@ jobs:
           name: Blue-listening-panel
           path: listening/
   desktop-profile:
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

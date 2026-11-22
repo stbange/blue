@@ -70,7 +70,7 @@ blue.at(0.5, 1, 0.75)
 
 ## Verification
 
-The unit suite exercises the engine, pack compiler, PCM import/export, factory Lua and Web C bindings. The following commands reproduce the unit coverage report with GCC and the cross-target audio comparisons with Python, NumPy and Node.js.
+The unit suite exercises the engine, pack compiler, native editor and ZIP exchange, PCM import/export, factory Lua and browser bindings. On the pull request, the Actions run provides the portable instruments, browser site, four loudness-matched listening WAVs, coverage inventory and the ten-minute benchmark capture. The following commands reproduce the unit coverage report with GCC and the cross-target audio comparisons with Python, NumPy and Node.js.
 
 ```sh
 cmake -S . -B coverage -G Ninja -DBLUE_COVERAGE=ON
