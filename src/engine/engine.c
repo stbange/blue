@@ -36,6 +36,19 @@ struct BlueEngine {
 static float bound(float x, float lo, float hi) {
   return fminf(hi, fmaxf(lo, x));
 }
+void blue_prepare_waves(BluePatch *p){
+  for(int i=0;i<3;i++){
+    BlueLane *l=&p->lane[i];if(l->source!=TABLE)continue;
+    for(int frame=0;frame<2;frame++)for(int level=0;level<5;level++){
+      float *wave=l->tables[frame][level];
+      for(int k=0;k<BLUE_TABLE_SIZE;k++){
+        double sum=0;for(int h=0;h<(1<<level);h++)sum+=l->harmonic[frame][h]*sin(TAU*k*(h+1)/BLUE_TABLE_SIZE);
+        wave[k]=(float)sum;
+      }
+      wave[BLUE_TABLE_SIZE]=wave[0];
+    }
+  }
+}
 void blue_defaults(BluePatch *p) {
   memset(p, 0, sizeof *p);
   p->gain = .22f;
@@ -195,15 +208,12 @@ static float source(LaneState *s, const BlueLane *l, const BluePatch *p,
     }
     return (float)x;
   }
-  case TABLE: {
-    float sum = 0;
-    for (int j = 0; j < 16 && freq * (j + 1) < rate * .5; j++) {
-      float h =
-          l->harmonic[0][j] + morph * (l->harmonic[1][j] - l->harmonic[0][j]);
-      if (h != 0)
-        sum += h * (float)sin(TAU * ph * (j + 1));
-    }
-    return sum;
+  case TABLE:{
+    int level=4;while(level>0 && (1<<level)*freq>=rate*.5)level--;
+    double address=ph*BLUE_TABLE_SIZE;int index=(int)address;float frac=(float)(address-index);
+    const float *a=l->tables[0][level],*b=l->tables[1][level];
+    float x=a[index]+frac*(a[index+1]-a[index]),y=b[index]+frac*(b[index+1]-b[index]);
+    return x+morph*(y-x);
   }
   case FM:
   case RING: {

@@ -5,6 +5,7 @@
 #include <stdint.h>
 #define BLUE_LANES 3
 #define BLUE_POINTS 128
+#define BLUE_TABLE_SIZE 1024
 #define BLUE_SAMPLE 65536
 #define BLUE_VOICES 24
 enum BlueSource { SINE, SAW, TABLE, FM, RING, SAMPLE, GRAIN, CUSTOM };
@@ -29,6 +30,7 @@ typedef struct {
   uint32_t type_key;
   float parameter;
   float harmonic[2][16];
+  float tables[2][5][BLUE_TABLE_SIZE+1];
 } BlueLane;
 typedef struct {
   float time, value, curve;
@@ -52,6 +54,7 @@ typedef struct {
   int command, id;
   float value;
 } BlueEvent;
+void blue_prepare_waves(BluePatch *p);
 void blue_defaults(BluePatch *p);
 BlueEngine *blue_create(int rate, int voices);
 void blue_destroy(BlueEngine *e);

@@ -21,18 +21,19 @@ jobs:
       - run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
       - run: cmake --build build --parallel 4
       - run: ctest --test-dir build --output-on-failure
+      - run: cmake --install build --component Blue --prefix package
       - run: pip install pyautogui==0.9.54
       - if: runner.os == 'Linux'
-        run: xvfb-run -a python tests/e2e_desktop.py build/bin/Blue
+        run: xvfb-run -a python tests/e2e_desktop.py package/Blue
       - if: runner.os == 'Windows'
-        run: python tests/e2e_desktop.py build/bin/Blue.exe
+        run: python tests/e2e_desktop.py package/Blue.exe
       - if: runner.os == 'macOS'
-        run: python tests/e2e_desktop.py build/bin/Blue
+        run: python tests/e2e_desktop.py package/Blue
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: Blue-${{ runner.os }}
-          path: build/bin/
+          path: package/
   web:
     env:
       BLUE_HEADED: "1"
@@ -65,4 +66,9 @@ jobs:
       - run: cmake -S . -B coverage -G Ninja -DBLUE_DESKTOP=OFF -DBLUE_COVERAGE=ON
       - run: cmake --build coverage --parallel 4
       - run: python tests/coverage.py coverage
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci --prefix tests/js && node tests/js/node_modules/c8/bin/c8.js --all --src hosts/web/site --include "hosts/web/site/*.js" --check-coverage --lines 95 --reporter=text node --experimental-vm-modules --test tests/js/units.mjs
+      - run: pip install numpy && python tests/sonic.py coverage/bin/blue-render
       - run: npx --yes --package=@fission-ai/openspec@2.1.1 openspec validate --all --strict --no-interactive

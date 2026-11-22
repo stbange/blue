@@ -371,6 +371,7 @@ int blue_compile(BluePatch *out, const char *folder, const char *preset,
   lua_close(L);
   if (rc)
     goto end;
+  blue_prepare_waves(p);
   *out = *p;
   ok = 1;
 end:

@@ -56,7 +56,7 @@ def main():
         page.wait_for_timeout(160)
         with page.expect_download() as capture:page.get_by_role("button",name="Stop recording").click()
         wav=Path(tmp)/"capture.wav";capture.value.save_as(wav);check_audio(wav)
-        page.locator("summary").click()
+        page.get_by_text("Patch and Lua editor",exact=True).click()
         original=page.locator("#mapping").input_value()
         page.locator("#mapping").fill("this is invalid")
         page.get_by_role("button",name="Apply edits").click()
