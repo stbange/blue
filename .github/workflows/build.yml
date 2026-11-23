@@ -67,6 +67,10 @@ jobs:
       - run: emcmake cmake -S . -B extension -G Ninja -DCMAKE_BUILD_TYPE=Release -DBLUE_EXTENSION_SOURCE="$GITHUB_WORKSPACE/tests/fixture_node.c"
       - run: cmake --build extension --parallel 4
       - run: python tests/extension.py build-web/bin extension/bin
+      - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        with:
+          path: build-web/bin
   browser-e2e:
     env:
       BLUE_EVIDENCE: evidence
@@ -161,6 +165,47 @@ jobs:
         with:
           name: Blue-listening-panel
           path: listening/
+  deploy-pages:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: [web, browser-e2e, audio-parity, unit-coverage]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: github-pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Check the current main commit
+        id: revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          if [ "$current" = "$GITHUB_SHA" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish Blue to GitHub Pages
+        id: deploy
+        if: steps.revision.outputs.publish == 'true'
+        uses: actions/deploy-pages@v4
+      - name: Check the published files
+        if: steps.revision.outputs.publish == 'true'
+        env:
+          SITE_URL: ${{ steps.deploy.outputs.page_url }}
+        run: |
+          site="${SITE_URL%/}"
+          curl --fail --silent --show-error --retry 5 --retry-all-errors --max-time 20 "$site/" -o /dev/null
+          for module in audio.wasm author.wasm; do
+            type=$(curl --fail --silent --show-error --retry 5 --retry-all-errors --max-time 20 \
+              -o /dev/null -w '%{content_type}' "$site/$module")
+            test "${type%%;*}" = application/wasm
+          done
+          curl --fail --silent --show-error --retry 5 --retry-all-errors --max-time 20 \
+            "$site/content/index.json" | jq -e '.packs | length > 0'
   desktop-profile:
     runs-on: ubuntu-24.04
     steps:
