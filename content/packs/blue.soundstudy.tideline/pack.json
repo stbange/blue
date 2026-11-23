@@ -1,0 +1,9 @@
+{
+  "id": "blue.soundstudy.tideline",
+  "format": 1,
+  "luaApi": 1,
+  "version": "1.0",
+  "presets": {"Tideline": "presets/tideline.json"},
+  "assets": {"friction": "samples/friction.wav"},
+  "script": "scripts/tideline.lua"
+}

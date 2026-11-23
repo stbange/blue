@@ -1,0 +1,96 @@
+{
+  "format": 1,
+  "gain": 0.1955,
+  "attack": 0.13,
+  "release": 3.5,
+  "lfo": [
+    0.082,
+    0.054,
+    0.127
+  ],
+  "delay": 0.62,
+  "feedback": 0.34,
+  "reverb": 0.54,
+  "macros": [
+    0.23,
+    0.21,
+    0.19,
+    0.22
+  ],
+  "lanes": [
+    {
+      "source": "table",
+      "gain": 0.45,
+      "pan": -0.05,
+      "harmonics": [
+        [
+          1,
+          0,
+          0.41,
+          0,
+          0.18,
+          0,
+          0.09,
+          0,
+          0.04
+        ],
+        [
+          1,
+          0.06,
+          0.29,
+          0.05,
+          0.32,
+          0.03,
+          0.17,
+          0,
+          0.1,
+          0,
+          0.06
+        ]
+      ],
+      "morph": 0.22,
+      "inserts": [
+        "lowpass"
+      ],
+      "cutoff": 1520
+    },
+    {
+      "source": "grain",
+      "gain": 0.92,
+      "pan": 0.34,
+      "position": 0.21,
+      "scan": 0.26,
+      "size": 0.081,
+      "density": 24,
+      "scatter": 0.08,
+      "root": 57
+    },
+    {
+      "source": "sample",
+      "gain": 0.37,
+      "pan": -0.5,
+      "root": 57,
+      "space": 0.24
+    }
+  ],
+  "sample": "stones",
+  "seed": 893,
+  "envelope": [
+    {
+      "time": 0,
+      "value": 1
+    },
+    {
+      "time": 0.7,
+      "value": 0.67
+    },
+    {
+      "time": 4,
+      "value": 0.91
+    },
+    {
+      "time": 11,
+      "value": 0.77
+    }
+  ]
+}

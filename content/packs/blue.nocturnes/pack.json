@@ -1,0 +1,15 @@
+{
+  "id": "blue.nocturnes",
+  "format": 1,
+  "luaApi": 1,
+  "version": "1.0",
+  "presets": {
+    "Gravity Well": "presets/gravity-well.json",
+    "Velvet Eclipse": "presets/velvet-eclipse.json",
+    "Copper Aurora": "presets/copper-aurora.json",
+    "Slow Meteor": "presets/slow-meteor.json",
+    "Polar Veil": "presets/polar-veil.json",
+    "Night Ferry": "presets/night-ferry.json"
+  },
+  "script": "scripts/performance.lua"
+}

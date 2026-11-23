@@ -1,0 +1,79 @@
+{
+  "format": 1,
+  "gain": 0.5484,
+  "attack": 0.012,
+  "release": 0.67,
+  "lfo": [
+    0.16,
+    0.24,
+    0.07
+  ],
+  "delay": 0.375,
+  "feedback": 0.24,
+  "reverb": 0.28,
+  "macros": [
+    0.23,
+    0.21,
+    0.19,
+    0.22
+  ],
+  "lanes": [
+    {
+      "source": "saw",
+      "gain": 0.67,
+      "pan": -0.3,
+      "inserts": [
+        "lowpass"
+      ],
+      "cutoff": 830
+    },
+    {
+      "source": "ring",
+      "gain": 0.29,
+      "pan": 0.38,
+      "ratio": 1.501,
+      "inserts": [
+        "bandpass"
+      ],
+      "cutoff": 1350
+    },
+    {
+      "source": "sine",
+      "gain": 0.4,
+      "pan": 0.04
+    }
+  ],
+  "bpm": 116,
+  "sync": true,
+  "loop": 0,
+  "envelope": [
+    {
+      "time": 0,
+      "value": 1
+    },
+    {
+      "time": 0.17,
+      "value": 0.21
+    },
+    {
+      "time": 0.45,
+      "value": 0.21
+    },
+    {
+      "time": 0.5,
+      "value": 0.75
+    },
+    {
+      "time": 0.72,
+      "value": 0.17
+    },
+    {
+      "time": 0.96,
+      "value": 0.17
+    },
+    {
+      "time": 1,
+      "value": 1
+    }
+  ]
+}

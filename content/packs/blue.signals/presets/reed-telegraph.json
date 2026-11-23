@@ -1,0 +1,108 @@
+{
+  "format": 1,
+  "gain": 0.2234,
+  "attack": 0.045,
+  "release": 1.25,
+  "lfo": [
+    0.1,
+    0.28,
+    0.057
+  ],
+  "delay": 0.375,
+  "feedback": 0.29,
+  "reverb": 0.43,
+  "macros": [
+    0.23,
+    0.21,
+    0.19,
+    0.22
+  ],
+  "lanes": [
+    {
+      "source": "table",
+      "gain": 0.75,
+      "pan": -0.19,
+      "harmonics": [
+        [
+          1,
+          0,
+          0.1,
+          0,
+          0.19,
+          0,
+          0,
+          0,
+          0.08
+        ],
+        [
+          0.82,
+          0.05,
+          0.46,
+          0,
+          0.11,
+          0.03,
+          0.25,
+          0,
+          0.17,
+          0,
+          0.08
+        ]
+      ],
+      "morph": 0.68,
+      "inserts": [
+        "lowpass"
+      ],
+      "cutoff": 1580
+    },
+    {
+      "source": "saw",
+      "gain": 0.32,
+      "pan": 0.37,
+      "inserts": [
+        "lowpass"
+      ],
+      "cutoff": 1020
+    },
+    {
+      "source": "fm",
+      "gain": 0.18,
+      "pan": -0.4,
+      "ratio": 2,
+      "depth": 0.84,
+      "decay": 0.68
+    }
+  ],
+  "bpm": 76,
+  "sync": true,
+  "loop": 0,
+  "envelope": [
+    {
+      "time": 0,
+      "value": 1
+    },
+    {
+      "time": 0.11,
+      "value": 0.41
+    },
+    {
+      "time": 0.19,
+      "value": 0.41
+    },
+    {
+      "time": 0.23,
+      "value": 0.92
+    },
+    {
+      "time": 0.48,
+      "value": 0.35
+    },
+    {
+      "time": 0.72,
+      "value": 0.35
+    },
+    {
+      "time": 0.75,
+      "value": 1
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "format": 1,
+  "gain": 0.385,
+  "attack": 1.4,
+  "release": 3.7,
+  "lfo": [
+    0.092,
+    0.133,
+    0.047
+  ],
+  "delay": 0.38,
+  "feedback": 0.2,
+  "reverb": 0.48,
+  "macros": [
+    0.23,
+    0.21,
+    0.19,
+    0.22
+  ],
+  "lanes": [
+    {
+      "source": "saw",
+      "gain": 0.42,
+      "pan": -0.04,
+      "inserts": [
+        "lowpass"
+      ],
+      "cutoff": 650
+    },
+    {
+      "source": "grain",
+      "gain": 0.98,
+      "pan": -0.31,
+      "position": 0.22,
+      "scan": 0.41,
+      "size": 0.06,
+      "density": 31,
+      "scatter": 0.31,
+      "root": 57,
+      "inserts": [
+        "bandpass"
+      ],
+      "cutoff": 1600
+    },
+    {
+      "source": "fm",
+      "gain": 0.22,
+      "pan": 0.48,
+      "ratio": 1.004,
+      "depth": 1.3
+    }
+  ],
+  "sample": "eelgrass",
+  "loop": 1,
+  "seed": 691,
+  "envelope": [
+    {
+      "time": 0,
+      "value": 0.47
+    },
+    {
+      "time": 3,
+      "value": 0.91
+    },
+    {
+      "time": 5.5,
+      "value": 0.58
+    },
+    {
+      "time": 8.4,
+      "value": 0.91
+    }
+  ]
+}
