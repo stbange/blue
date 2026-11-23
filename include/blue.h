@@ -8,6 +8,8 @@
 #define BLUE_TABLE_SIZE 1024
 #define BLUE_SAMPLE 65536
 #define BLUE_VOICES 24
+#define BLUE_KEYS 36
+#define BLUE_KEY_ID 128
 enum BlueSource { SINE, SAW, TABLE, FM, RING, SAMPLE, GRAIN, CUSTOM };
 enum BlueInsert { BYPASS, LOWPASS, HIGHPASS, BANDPASS, SHAPE, COMB };
 enum BlueCommand {
@@ -21,7 +23,8 @@ enum BlueCommand {
   PANIC,
   POSITION,
   TEMPO,
-  DISTANCE
+  DISTANCE,
+  TUNED_NOTE_ON /* Computer key ID, fractional MIDI pitch, velocity .85. */
 };
 typedef struct {
   int source, insert[2], root;

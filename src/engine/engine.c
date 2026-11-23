@@ -20,7 +20,7 @@ typedef struct {
 typedef struct {
   int key, active, released, pedal, generation;
   uint64_t start;
-  float velocity, amp, held_env;
+  float pitch, velocity, amp, held_env;
   float modulation_value[32], modulation_slope[32];
   LaneState lane[3];
 } Voice;
@@ -120,7 +120,10 @@ void blue_event(BlueEngine *e, int cmd, int id, float val) {
     return;
   if (cmd == NOTE_ON && val <= 0)
     cmd = NOTE_OFF;
-  if (cmd == NOTE_ON && id >= 0 && id <= 127) {
+  int tuned = cmd == TUNED_NOTE_ON;
+  if ((cmd == NOTE_ON && id >= 0 && id <= 127) ||
+      (tuned && id >= BLUE_KEY_ID && id < BLUE_KEY_ID + BLUE_KEYS && val >= 0 &&
+       val <= 127)) {
     Voice *v = e->voice;
     for (int i = 0; i < e->voices; i++) {
       Voice *t = &e->voice[i];
@@ -135,7 +138,8 @@ void blue_event(BlueEngine *e, int cmd, int id, float val) {
     v->active = 1;
     v->key = id;
     v->generation = e->current;
-    v->velocity = bound(val, 0, 1);
+    v->pitch = tuned ? val : (float)id;
+    v->velocity = tuned ? .85f : bound(val, 0, 1);
     v->start = e->clock;
     for (int i = 0; i < 3; i++) {
       v->lane[i].rng = e->patches[e->current].seed + (unsigned)id + i;
@@ -352,7 +356,7 @@ void blue_render(BlueEngine *e, float *left, float *right, int frames) {
       for (int k = 0; k < 8; k++)
         for (int d = 0; d < 4; d++)
           mod[d] += e->macro[k] * p->routes[k][d];
-      double freq = 440 * exp2((v->key - 69 + e->bend) / 12.);
+      double freq = 440 * exp2((v->pitch - 69 + e->bend) / 12.);
       if (!v->released)
         v->held_env = envelope(p, age);
       float lanes[BLUE_LANES][MOD_COUNT] = {{0}};

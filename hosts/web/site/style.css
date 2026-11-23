@@ -132,26 +132,54 @@ input[type="range"] {
   width: 100%;
   accent-color: #70c8da;
 }
+.tuning-bar,
+.tuning-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+}
+.tuning-bar {
+  margin-top: 18px;
+}
+#tuning-range,
+#tuning-help,
+#tuning-error {
+  font-size: 13px;
+}
+#tuning-cents {
+  width: min(380px, 65vw);
+}
+#tuning-root {
+  width: 88px;
+}
 #keyboard {
   display: flex;
-  height: 95px;
-  margin-top: 20px;
-  gap: 2px;
+  flex-direction: column;
+  margin-top: 10px;
+  gap: 4px;
+}
+.key-row {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 4px;
 }
 #keyboard button {
-  flex: 1;
+  min-width: 0;
   background: #d5e3e9;
   color: #233341;
-  padding: 3px;
-  align-content: end;
+  padding: 5px 1px;
+  touch-action: none;
 }
-#keyboard .black {
-  background: #344659;
-  color: #d6e4ec;
-  height: 72%;
+#keyboard button span {
+  display: block;
+  font-size: min(2.6vw, 12px);
 }
 #keyboard .held {
   background: #51c4cf;
+}
+#tuning-error {
+  color: #ffa991;
 }
 .tools {
   display: flex;

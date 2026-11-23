@@ -11,6 +11,38 @@
       exit(1);                                                                 \
     }                                                                          \
   } while (0)
+static void tuned_notes(void) {
+  BlueEngine *engine = blue_create(48000, 4);
+  CHECK(engine);
+  BluePatch *patch = blue_stage(engine);
+  CHECK(patch);
+  blue_defaults(patch);
+  patch->attack = patch->release = 0;
+  CHECK(blue_commit(engine));
+  float left[480], right[480], prev = 0;
+  blue_event(engine, TUNED_NOTE_ON, BLUE_KEY_ID, 69.5f);
+  int cycles = 0;
+  for (int chunk = 0; chunk < 100; chunk++) {
+    blue_render(engine, left, right, 480);
+    for (int frame = 0; frame < 480; frame++) {
+      cycles += prev < 0 && left[frame] >= 0;
+      prev = left[frame];
+    }
+  }
+  CHECK(abs(cycles - 453) <= 1);
+  blue_event(engine, NOTE_OFF, 69, 0);
+  blue_render(engine, left, right, 480);
+  CHECK(fabsf(left[40]) > .02f);
+  blue_event(engine, NOTE_OFF, BLUE_KEY_ID, 0);
+  blue_event(engine, TUNED_NOTE_ON, BLUE_KEY_ID - 1, 69.5f);
+  blue_event(engine, TUNED_NOTE_ON, BLUE_KEY_ID + BLUE_KEYS, 69.5f);
+  blue_event(engine, TUNED_NOTE_ON, BLUE_KEY_ID, 128);
+  blue_event(engine, TUNED_NOTE_ON, BLUE_KEY_ID, -1);
+  blue_render(engine, left, right, 480);
+  for (int frame = 0; frame < 480; frame++)
+    CHECK(left[frame] == 0 && right[frame] == 0);
+  blue_destroy(engine);
+}
 static void timing(int rate, int block) {
   BlueEngine *e = blue_create(rate, 2);
   CHECK(e);
@@ -184,6 +216,7 @@ int main(int argc, char **argv) {
   CHECK(abs(periods - 451) < 3);
   blue_destroy(matrix);
   free(custom);
+  tuned_notes();
   CHECK(!blue_create(1, 3));
   CHECK(!blue_create(48000, 100));
   int rates[] = {44100, 48000, 96000}, blocks[] = {1, 63, 128, 511};

@@ -92,6 +92,9 @@ def main():
                         "right": 39,
                         "f5": 116,
                         "f9": 120,
+                        "f10": 121,
+                        "f11": 122,
+                        "f12": 123,
                         "escape": 27,
                         "[": 219,
                         "]": 221,
@@ -169,8 +172,8 @@ def main():
                 assert user.FindWindowW(None, "Blue | Calibration"), (
                     "Saved preset was not recalled"
                 )
-            keys.press("r")
-            keys.keyDown("h")
+            keys.press("f10")
+            keys.keyDown("r")
             time.sleep(0.15)
             # Reload a maximum-size PCM bank while the held calibration voice plays.
             factory = app / "content/packs/blue.factory"
@@ -182,12 +185,12 @@ def main():
             patch = json.loads(old_patch)
             patch["sample"] = "glass"
             patch_file.write_text(json.dumps(patch))
-            keys.press("z")
+            keys.press("f11")
             time.sleep(0.25)
             patch_file.write_bytes(old_patch)
-            keys.keyUp("h")
+            keys.keyUp("r")
             time.sleep(0.9)
-            keys.press("r")
+            keys.press("f10")
             for i in range(30):
                 if wav.exists() and wav.stat().st_size > 2048:
                     break
@@ -257,12 +260,12 @@ def main():
             missing.rename(document)
             keys.press("f9")
             time.sleep(0.5)
-            keys.press("r")
-            keys.keyDown("h")
+            keys.press("f10")
+            keys.keyDown("r")
             time.sleep(0.35)
-            keys.keyUp("h")
+            keys.keyUp("r")
             time.sleep(0.3)
-            keys.press("r")
+            keys.press("f10")
             for _ in range(50):
                 if wav.exists() and wav.stat().st_size > 2048:
                     break

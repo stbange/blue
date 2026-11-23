@@ -30,7 +30,23 @@
         <h2>Performance</h2>
         <div id="macros"></div>
       </div>
+      <div class="tuning-bar">
+        <label>Keyboard tuning
+          <select id="tuning"></select>
+        </label>
+        <span id="tuning-range"></span>
+      </div>
       <div id="keyboard" aria-label="Keyboard"></div>
+      <details id="tuning-builder">
+        <summary>Tuning builder</summary>
+        <div class="tuning-fields">
+          <label>Root MIDI note <input id="tuning-root" type="number" min="0" max="127" step="1" /></label>
+          <label>Scale steps in cents <input id="tuning-cents" type="text" spellcheck="false" /></label>
+          <button id="tuning-apply" type="button">Save custom tuning</button>
+        </div>
+        <p id="tuning-help">C2 is MIDI 36. Enter 4–24 ascending steps starting at 0. Blue repeats them every 1200 cents.</p>
+        <p id="tuning-error" role="alert" hidden></p>
+      </details>
       <p id="status" role="status">Loading factory pack…</p>
       <div class="tools">
         <button id="record">Record output</button

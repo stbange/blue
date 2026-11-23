@@ -5,6 +5,7 @@
 #include "editor.h"
 #include "midi.h"
 #include "panel.h"
+#include "tuning.h"
 #include <SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,6 +16,10 @@ typedef struct {
   SDL_Window *window;
   BlueEditor editor;
   BluePanel panel;
+  BlueTuning tunings[BLUE_TUNINGS + 1];
+  BlueEditor builder[2];
+  unsigned char held[BLUE_KEYS];
+  int tuning_count, tuning_selected, tuning_menu, tuning_cursor, tuning_field;
   BlueEngine *engine;
   BlueQueue queue;
   int macro_page, output_index;
@@ -31,7 +36,9 @@ typedef struct {
   char message[2048];
 } App;
 
-static const char keys[] = "awsedftgyhujk";
+static const int key_starts[] = {26, 16, 7, 0};
+enum { KEYBOARD_X = 28, KEYBOARD_Y = 307, KEY_WIDTH = 86, KEY_HEIGHT = 26 };
+enum { TUNING_MENU_Y = 282, TUNING_ITEM_HEIGHT = 20 };
 static void callback(void *ud, Uint8 *stream, int bytes) {
   App *a = ud;
   blue_queue_drain(&a->queue, a->engine);
@@ -57,6 +64,18 @@ static void event(App *a, int c, int key, float v) {
   SDL_LockAudioDevice(a->device);
   blue_queue_push(&a->queue, c, key, v);
   SDL_UnlockAudioDevice(a->device);
+}
+static void keyboard_note(App *a, int step, int source, int down) {
+  unsigned char old = a->held[step];
+  a->held[step] = down ? old | source : old & ~source;
+  if (!!old == !!a->held[step])
+    return;
+  event(a, down ? TUNED_NOTE_ON : NOTE_OFF, BLUE_KEY_ID + step,
+        down ? blue_tuned_pitch(&a->tunings[a->tuning_selected], step) : 0);
+}
+static void panic(App *a) {
+  memset(a->held, 0, sizeof a->held);
+  event(a, PANIC, 0, 0);
 }
 static void midi_sink(void *ud, int c, int key, float v) {
   event((App *)ud, c, key, v);
@@ -138,6 +157,61 @@ static void label(SDL_Renderer *r, SDL_Texture *font, int x, int y,
     SDL_RenderCopy(r, font, &src, &dst);
   }
 }
+static void draw_tuning(App *a, SDL_Renderer *r, SDL_Texture *font) {
+  const BlueTuning *t = &a->tunings[a->tuning_selected];
+  char menu[70], pitch[16];
+  snprintf(menu, sizeof menu, "Tuning: %s  v", t->name);
+  rect(r, 28, 262, 302, 24, 36, 65, 74);
+  label(r, font, 34, 268, menu, 1);
+  rect(r, 339, 262, 140, 24, 36, 65, 74);
+  label(r, font, 349, 268, "Build tuning", 1);
+  label(r, font, 496, 268, "F12 opens tuning", 1);
+  for (int row = 0; row < 4; row++) {
+    int count = row < 2 ? 10 : (row == 2 ? 9 : 7);
+    for (int col = 0; col < count; col++) {
+      int step = key_starts[row] + col;
+      int x = KEYBOARD_X + col * KEY_WIDTH, y = KEYBOARD_Y + row * KEY_HEIGHT;
+      int root = step % t->count == 0;
+      int light = a->held[step] ? 100 : (root ? 72 : 45);
+      rect(r, x, y, KEY_WIDTH - 4, KEY_HEIGHT - 3, 32, light, light + 10);
+      char key[2] = {(char)SDL_toupper(blue_keys[step]), 0};
+      blue_pitch_name(blue_tuned_pitch(t, step), pitch, sizeof pitch);
+      label(r, font, x + 5, y + 4, key, 1);
+      label(r, font, x + 24, y + 4, pitch, 1);
+    }
+  }
+  if (a->tuning_menu) {
+    int top = TUNING_MENU_Y - (a->tuning_count + 2) * TUNING_ITEM_HEIGHT;
+    rect(r, 28, top, 302, TUNING_MENU_Y - top, 18, 33, 44);
+    for (int i = 0; i <= a->tuning_count + 1; i++) {
+      int y = top + i * TUNING_ITEM_HEIGHT;
+      if (i == a->tuning_cursor)
+        rect(r, 28, y, 302, TUNING_ITEM_HEIGHT, 37, 80, 89);
+      const char *name =
+          i <= a->tuning_count ? a->tunings[i].name : "Build tuning...";
+      label(r, font, 36, y + 3, name, 1);
+    }
+  }
+  if (a->tuning_field) {
+    rect(r, 22, 74, 870, 242, 18, 37, 48);
+    label(r, font, 40, 89, "Tuning builder", 2);
+    for (int i = 0; i < 2; i++) {
+      BlueEditor *field = &a->builder[i];
+      int y = 134 + i * 54;
+      size_t start = field->cursor > 94 ? field->cursor - 94 : 0;
+      rect(r, 39, y + 14, 832, 23, 27, a->tuning_field == i + 1 ? 75 : 53, 75);
+      label(r, font, 42, y, i ? "Scale steps in cents" : "Root MIDI note", 1);
+      label(r, font, 46, y + 18, field->text + start, 1);
+      if (a->tuning_field == i + 1)
+        rect(r, 46 + (int)(field->cursor - start) * 8, y + 33, 8, 2, 85, 235,
+             221);
+    }
+    label(r, font, 42, 249,
+          "C2 = 36. Use 4-24 ascending steps from 0, below 1200 cents.", 1);
+    label(r, font, 42, 278,
+          "Tab switches fields    Enter saves Custom    Esc cancels", 1);
+  }
+}
 static void draw(App *a, SDL_Renderer *r, SDL_Texture *font) {
   rect(r, 0, 0, 920, 480, 13, 22, 30);
   if (a->panel.doc) {
@@ -205,22 +279,13 @@ static void draw(App *a, SDL_Renderer *r, SDL_Texture *font) {
     rect(r, 270, y, 610, 23, 42, 62, 74);
     rect(r, 270, y, (int)(610 * a->macros[idx]), 23, 92, 201, 192);
   }
-  for (int k = 0; k < 13; k++) {
-    int dark = strchr("wetyu", keys[k]) != NULL;
-    rect(r, 28 + 66 * k, 295, 62, 78, dark ? 53 : 160, dark ? 85 : 190,
-         dark ? 94 : 192);
-    char s[2] = {keys[k], 0};
-    label(r, font, 48 + 66 * k, 324, s, 2);
-  }
-  label(r, font, 28, 390,
-        "Z Reload   R Record   F2 Macro pair   F3 Audio output   F5 Save   F9 "
-        "Recall",
+  draw_tuning(a, r, font);
+  label(r, font, 28, 418,
+        "F2 Macros   F3 Output   F4 Patch JSON   F5 Save   F6 Lua   F7 Export  "
+        " F8 Edit   F9 Recall",
         1);
-  label(r, font, 28, 425, a->capturing ? "Recording master ..." : a->message,
-        1);
-  label(r, font, 28, 452,
-        "F4  Edit patch JSON       F6  Edit Lua mapping       F7  Export pack  "
-        "  F8  Sound editor",
+  label(r, font, 28, 438, "F10 Record     F11 Reload files", 1);
+  label(r, font, 28, 458, a->capturing ? "Recording master ..." : a->message,
         1);
   SDL_RenderPresent(r);
 }
@@ -256,6 +321,114 @@ static void state(App *a, int save) {
   }
   fclose(f);
 }
+static void format_steps(const BlueTuning *t, char *text) {
+  size_t offset = 0;
+  for (int i = 0; i < t->count; i++)
+    offset += (size_t)snprintf(text + offset, 512 - offset, "%s%.7g",
+                               i ? ", " : "", t->cents[i]);
+}
+static void custom_tuning(App *a, int save) {
+  char *dir = a->user_dir ? SDL_strdup(a->user_dir)
+                          : SDL_GetPrefPath("Blue", "Instrument");
+  if (!dir)
+    return;
+  char path[2048], root[32], text[512];
+  snprintf(path, sizeof path, "%s/tuning.txt", dir);
+  SDL_free(dir);
+  FILE *file = fopen(path, save ? "w" : "r");
+  if (!file)
+    return;
+  BlueTuning *t = &a->tunings[a->tuning_count];
+  if (save) {
+    format_steps(t, text);
+    fprintf(file, "%d\n%s\n", t->root, text);
+  } else if (fgets(root, sizeof root, file) && fgets(text, sizeof text, file))
+    blue_parse_tuning(root, text, t);
+  fclose(file);
+}
+static void close_builder(App *a) {
+  editor_close(&a->builder[0]);
+  editor_close(&a->builder[1]);
+  a->tuning_field = 0;
+}
+static void open_builder(App *a) {
+  const BlueTuning *t = &a->tunings[a->tuning_selected];
+  for (int i = 0; i < 2; i++) {
+    BlueEditor *field = &a->builder[i];
+    field->text = malloc(512);
+    if (!field->text) {
+      close_builder(a);
+      return;
+    }
+    if (i)
+      format_steps(t, field->text);
+    else
+      snprintf(field->text, 512, "%d", t->root);
+    field->capacity = 512;
+    field->cursor = field->length = strlen(field->text);
+  }
+  a->tuning_field = 1;
+  SDL_StartTextInput();
+}
+static int tuning_input(App *a, const SDL_Event *ev) {
+  int mouse = ev->type == SDL_MOUSEBUTTONDOWN, x = 0, y = 0;
+  if (mouse)
+    SDL_GetMouseState(&x, &y);
+  SDL_Keycode key = ev->type == SDL_KEYDOWN ? ev->key.keysym.sym : SDLK_UNKNOWN;
+  if (a->tuning_field) {
+    BlueEditor *field = &a->builder[a->tuning_field - 1];
+    if (ev->type == SDL_TEXTINPUT)
+      editor_input(field, ev->text.text);
+    else if (key == SDLK_ESCAPE)
+      close_builder(a);
+    else if (key == SDLK_TAB || (mouse && y >= 145 && y < 225))
+      a->tuning_field = mouse ? (y >= 188 ? 2 : 1) : 3 - a->tuning_field;
+    else if (key == SDLK_RETURN || key == SDLK_KP_ENTER) {
+      if (blue_parse_tuning(a->builder[0].text, a->builder[1].text,
+                            &a->tunings[a->tuning_count])) {
+        a->tuning_selected = a->tuning_count;
+        custom_tuning(a, 1);
+        close_builder(a);
+        snprintf(a->message, sizeof a->message, "Custom tuning saved");
+      } else
+        snprintf(a->message, sizeof a->message,
+                 "Invalid root or steps. All 36 keys must fit in MIDI 0-127.");
+    } else if (key != SDLK_UNKNOWN)
+      editor_key(field, key, ev->key.keysym.mod);
+    return 1;
+  }
+  if (a->tuning_menu) {
+    int count = a->tuning_count + 2;
+    if (key == SDLK_UP || key == SDLK_DOWN)
+      a->tuning_cursor =
+          (a->tuning_cursor + count + (key == SDLK_UP ? -1 : 1)) % count;
+    else if (key == SDLK_RETURN || mouse) {
+      int top = TUNING_MENU_Y - count * TUNING_ITEM_HEIGHT;
+      int selected = mouse
+                         ? (x >= 28 && x < 330 && y >= top && y < TUNING_MENU_Y
+                                ? (y - top) / TUNING_ITEM_HEIGHT
+                                : -1)
+                         : a->tuning_cursor;
+      a->tuning_menu = 0;
+      if (selected == count - 1)
+        open_builder(a);
+      else if (selected >= 0)
+        a->tuning_selected = selected;
+    } else if (key == SDLK_ESCAPE || key == SDLK_F12)
+      a->tuning_menu = 0;
+    return 1;
+  }
+  if (key == SDLK_F12 || (mouse && y >= 262 && y < 286 && x >= 28 && x < 330)) {
+    a->tuning_cursor = a->tuning_selected;
+    a->tuning_menu = 1;
+    return 1;
+  }
+  if (mouse && y >= 262 && y < 286 && x >= 339 && x < 479) {
+    open_builder(a);
+    return 1;
+  }
+  return 0;
+}
 static int open_output(App *a, const char *name) {
   SDL_AudioSpec want = {0}, have;
   want.freq = RATE;
@@ -284,6 +457,7 @@ static int open_output(App *a, const char *name) {
   a->device = device;
   a->rate = have.freq;
   a->queue.used = 0;
+  memset(a->held, 0, sizeof a->held);
   load(a, a->selected);
   SDL_PauseAudioDevice(device, 0);
   return 1;
@@ -293,9 +467,11 @@ int main(int argc, char **argv) {
   if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO))
     return 1;
   char *base = SDL_GetBasePath();
-  char root[2048], atlas[2048];
+  char root[2048], atlas[2048], tuning_path[2048];
   snprintf(root, sizeof root, "%scontent", base ? base : "");
   snprintf(atlas, sizeof atlas, "%scontent/graphics/font.bmp",
+           base ? base : "");
+  snprintf(tuning_path, sizeof tuning_path, "%scontent/tunings.json",
            base ? base : "");
   SDL_free(base);
   App a = {0};
@@ -314,6 +490,10 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "--record-to"))
       a.wav = argv[i + 1];
   }
+  a.tuning_count = blue_read_tunings(tuning_path, a.tunings);
+  a.tunings[a.tuning_count] = a.tunings[0];
+  strcpy(a.tunings[a.tuning_count].name, "Custom");
+  custom_tuning(&a, 0);
   a.count = blue_catalog(root, a.catalog, 128);
   if (initial)
     for (int i = 0; i < a.count; i++)
@@ -363,8 +543,28 @@ int main(int argc, char **argv) {
       if (ev.type == SDL_QUIT)
         quit = 1;
       if (ev.type == SDL_WINDOWEVENT &&
-          ev.window.event == SDL_WINDOWEVENT_FOCUS_LOST)
-        event(&a, PANIC, 0, 0);
+          ev.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+        panic(&a);
+        mouse = -1;
+      }
+      SDL_Keycode symbol = ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP
+                               ? ev.key.keysym.sym
+                               : 0;
+      const char *key =
+          symbol > 0 && symbol < 128 ? strchr(blue_keys, symbol) : NULL;
+      if ((ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP) &&
+          ev.key.keysym.scancode >= SDL_SCANCODE_1 &&
+          ev.key.keysym.scancode <= SDL_SCANCODE_0)
+        key =
+            blue_keys + key_starts[0] + ev.key.keysym.scancode - SDL_SCANCODE_1;
+      if (ev.type == SDL_KEYUP && key)
+        keyboard_note(&a, (int)(key - blue_keys), 1, 0);
+      if (ev.type == SDL_MOUSEBUTTONUP && mouse >= 0) {
+        keyboard_note(&a, mouse, 2, 0);
+        mouse = -1;
+      }
+      if (!a.editor.text && tuning_input(&a, &ev))
+        continue;
       if (a.panel.doc) {
         if (ev.type == SDL_MOUSEBUTTONDOWN) {
           int x, y;
@@ -415,25 +615,23 @@ int main(int argc, char **argv) {
         }
         continue;
       }
-      if ((ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP) && !ev.key.repeat) {
-        int down = ev.type == SDL_KEYDOWN;
-        SDL_Keycode k = ev.key.keysym.sym;
-        const char *p = k > 0 && k < 128 ? strchr(keys, (int)k) : NULL;
-        if (p)
-          event(&a, down ? NOTE_ON : NOTE_OFF, 60 + (int)(p - keys), .85f);
-        else if (down) {
+      if (ev.type == SDL_KEYDOWN && !ev.key.repeat) {
+        SDL_Keycode k = symbol;
+        if (key && !(ev.key.keysym.mod & (KMOD_CTRL | KMOD_GUI | KMOD_ALT)))
+          keyboard_note(&a, (int)(key - blue_keys), 1, 1);
+        else {
           if (k == SDLK_ESCAPE)
             quit = 1;
           else if (k == SDLK_LEFT || k == SDLK_RIGHT)
             load(&a,
                  (a.selected + (k == SDLK_RIGHT ? 1 : a.count - 1)) % a.count);
           else if (k == SDLK_F8) {
-            event(&a, PANIC, 0, 0);
+            panic(&a);
             if (editor_open(&a.editor, &a.catalog[a.selected], 0) &&
                 !panel_open(&a.panel, a.editor.text))
               editor_close(&a.editor);
           } else if (k == SDLK_F4 || k == SDLK_F6) {
-            event(&a, PANIC, 0, 0);
+            panic(&a);
             if (!editor_open(&a.editor, &a.catalog[a.selected], k == SDLK_F6))
               snprintf(a.message, sizeof a.message, "Could not open source");
           } else if (k == SDLK_F2)
@@ -456,9 +654,9 @@ int main(int argc, char **argv) {
             snprintf(a.message, sizeof a.message, "%s",
                      ok ? "Pack exported"
                         : "Export failed. Choose a new ZIP path.");
-          } else if (k == SDLK_z)
+          } else if (k == SDLK_F11)
             load_controls(&a, a.selected, a.macros);
-          else if (k == SDLK_r)
+          else if (k == SDLK_F10)
             capture(&a);
           else if (k == SDLK_F5 || k == SDLK_F9)
             state(&a, k == SDLK_F5);
@@ -472,20 +670,25 @@ int main(int argc, char **argv) {
           int k = (y >= 232) + 2 * a.macro_page;
           a.macros[k] = (x - 270) / 610.f;
           event(&a, MACRO, k, a.macros[k]);
-        } else if (ev.type == SDL_MOUSEBUTTONDOWN && y >= 295 && y < 373 &&
-                   x >= 28 && x < 886) {
-          mouse = 60 + (x - 28) / 66;
-          event(&a, NOTE_ON, mouse, .85f);
+        } else if (ev.type == SDL_MOUSEBUTTONDOWN && y >= KEYBOARD_Y &&
+                   y < KEYBOARD_Y + 4 * KEY_HEIGHT && x >= KEYBOARD_X) {
+          int row = (y - KEYBOARD_Y) / KEY_HEIGHT;
+          int col = (x - KEYBOARD_X) / KEY_WIDTH;
+          int count = row < 2 ? 10 : (row == 2 ? 9 : 7);
+          if (col < count) {
+            if (mouse >= 0)
+              keyboard_note(&a, mouse, 2, 0);
+            mouse = key_starts[row] + col;
+            keyboard_note(&a, mouse, 2, 1);
+          }
         }
-      }
-      if (ev.type == SDL_MOUSEBUTTONUP && mouse >= 0) {
-        event(&a, NOTE_OFF, mouse, 0);
-        mouse = -1;
       }
     }
     draw(&a, r, font);
     SDL_Delay(16);
   }
+  if (a.tuning_field)
+    close_builder(&a);
   panel_close(&a.panel);
   editor_close(&a.editor);
   blue_midi_close();

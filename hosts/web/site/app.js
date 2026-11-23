@@ -1,6 +1,9 @@
 import { exportPack, unpack } from "./packs.js";
 import { mountEditor } from "./editor.js";
 import { enterXR } from "./xr.js";
+import {
+  defaultTuning, keys, parseTuning, pitch, pitchName, validTuning,
+} from "./tuning.js";
 const $ = (id) => document.getElementById(id);
 const status = (message) => ($("status").textContent = message);
 const worker = new Worker("worker.js");
@@ -32,23 +35,38 @@ const mappings = [
   "Macro 7",
   "Macro 8",
 ];
-const held = new Set(),
-  keys = "awsedftgyhujk";
+const held = keys.split("").map(() => new Set());
+const pressed = new Map();
+const tunedNoteOn = 11, firstKeyboardId = 128;
+const cells = [];
+let tuning = defaultTuning;
 function event(c, i, v, when) {
   if (!node) return;
   const delta = Number.isFinite(when) ? (when-performance.now())/1000 : 0;
   const frame = Math.round((context.currentTime + delta) * context.sampleRate) + 128;
   node.port.postMessage({c, i, v, frame});
 }
-function note(i, on) {
-  if (on === held.has(i)) return;
-  if (on) held.add(i);
-  else held.delete(i);
-  event(on ? 0 : 1, i, 0.85);
-  $("key" + i)?.classList.toggle("held", on);
+function note(step, source, on) {
+  const sources = held[step], wasHeld = sources.size > 0;
+  if (on) {
+    if (!node) return;
+    sources.add(source);
+  } else sources.delete(source);
+  const isHeld = sources.size > 0;
+  if (isHeld === wasHeld) return;
+  event(
+    isHeld ? tunedNoteOn : 1,
+    firstKeyboardId + step,
+    isHeld ? pitch(tuning, step) : 0,
+  );
+  cells[step].button.classList.toggle("held", isHeld);
 }
 function panic() {
-  for (const i of [...held]) note(i, false);
+  pressed.clear();
+  for (const [step, sources] of held.entries()) {
+    sources.clear();
+    cells[step].button.classList.remove("held");
+  }
   event(7, 0, 0);
 }
 function macro(i, v) {
@@ -70,35 +88,122 @@ for (let i = 0; i < 8; i++) {
   label.append(slider);
   $("macros").append(label);
 }
-for (const [i, key] of [...keys].entries()) {
-  const b = document.createElement("button");
-  b.textContent = key.toUpperCase();
-  b.id = "key" + (60 + i);
-  if ("wetyu".includes(key)) b.className = "black";
-  b.onpointerdown = (e) => {
-    b.setPointerCapture(e.pointerId);
-    note(60 + i, true);
-  };
-  b.onlostpointercapture = () => note(60 + i, false);
-  $("keyboard").append(b);
+for (const row of ["1234567890", "qwertyuiop", "asdfghjkl", "zxcvbnm"]) {
+  const group = document.createElement("div");
+  group.className = "key-row";
+  for (const key of row) {
+    const step = keys.indexOf(key), button = document.createElement("button");
+    const letter = document.createElement("strong"), tone = document.createElement("span");
+    letter.textContent = key.toUpperCase();
+    button.type = "button";
+    button.id = "key-" + key;
+    button.append(letter, tone);
+    button.onpointerdown = (e) => {
+      button.setPointerCapture(e.pointerId);
+      note(step, e.pointerId, true);
+    };
+    button.onlostpointercapture = (e) => note(step, e.pointerId, false);
+    button.onclick = (e) => {
+      if (e.detail === 0) {
+        note(step, button, true);
+        setTimeout(() => note(step, button, false), 180);
+      }
+    };
+    group.append(button);
+    cells[step] = { button, tone };
+  }
+  $("keyboard").append(group);
 }
 function keyboard(e, on) {
-  if (
-    e.target.matches("input,textarea,select") ||
-    e.ctrlKey ||
-    e.metaKey ||
-    e.altKey
-  )
+  const key = e.key.toLowerCase(), source = e.code || key;
+  if (!on) {
+    const step = pressed.get(source);
+    if (step !== undefined) {
+      pressed.delete(source);
+      note(step, source, false);
+    }
     return;
-  const i = keys.indexOf(e.key.toLowerCase());
-  if (i >= 0 && e.key.length === 1) {
+  }
+  if (
+    e.target.closest("input,textarea,select,[contenteditable]") ||
+    e.ctrlKey || e.metaKey || e.altKey || !node || pressed.has(source)
+  ) return;
+  const symbol = /^Digit[0-9]$/.test(source) ? source.slice(-1) : key;
+  const step = symbol.length === 1 ? keys.indexOf(symbol) : -1;
+  if (step >= 0) {
     e.preventDefault();
-    note(60 + i, on);
+    pressed.set(source, step);
+    note(step, source, true);
   }
 }
 window.onkeydown = (e) => keyboard(e, true);
 window.onkeyup = (e) => keyboard(e, false);
 window.onblur = panic;
+
+function showTuning(next) {
+  tuning = next;
+  for (const [step, { button, tone }] of cells.entries()) {
+    tone.textContent = pitchName(pitch(tuning, step));
+    button.setAttribute("aria-label", keys[step].toUpperCase() + " " + tone.textContent);
+  }
+  $("tuning-range").textContent =
+    pitchName(pitch(tuning, 0)) + " – " + pitchName(pitch(tuning, keys.length - 1));
+  $("tuning-root").value = tuning.root;
+  $("tuning-cents").value = tuning.cents.join(", ");
+  $("tuning-error").hidden = true;
+}
+async function initTuning() {
+  const select = $("tuning");
+  let tunings = [{ ...defaultTuning, name: "C major (C Dur)" }], saved;
+  try {
+    const response = await fetch("content/tunings.json");
+    if (response.ok) {
+      const catalog = (await response.json()).filter(
+        (t) => validTuning(t) && typeof t.name === "string",
+      );
+      if (catalog.length) tunings = catalog;
+    }
+  } catch {
+    // The default keyboard is available even if the shared catalog cannot load.
+  }
+  try {
+    saved = JSON.parse(window.localStorage.getItem("blue-tuning"));
+  } catch {
+    // Private browsing or an outdated saved value can prevent restoration.
+  }
+  let custom = validTuning(saved?.custom) ? saved.custom : { ...tunings[0] };
+  const selected = saved?.selected;
+  for (const t of tunings) select.add(new Option(t.name, t.name));
+  select.add(new Option("Custom", ""));
+  if (selected === "" || tunings.some((t) => t.name === selected))
+    select.value = selected;
+  function choose() {
+    showTuning(tunings.find((t) => t.name === select.value) || custom);
+    try {
+      window.localStorage.setItem(
+        "blue-tuning", JSON.stringify({ selected: select.value, custom }),
+      );
+    } catch {
+      // Playable for this session even when storage is disabled.
+    }
+  }
+  select.onchange = choose;
+  $("tuning-apply").onclick = () => {
+    const candidate = parseTuning($("tuning-root").value, $("tuning-cents").value);
+    if (!candidate) {
+      const error = $("tuning-error");
+      error.textContent = "Use a whole MIDI root and 4–24 ascending steps starting at 0. All 36 notes must fit in MIDI 0–127.";
+      error.hidden = false;
+      return;
+    }
+    custom = candidate;
+    select.value = "";
+    choose();
+  };
+  choose();
+}
+showTuning(defaultTuning);
+void initTuning();
 function database() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open("BlueRevisions", 1);

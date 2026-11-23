@@ -4,7 +4,7 @@ Blue is a playable hybrid synthesizer with a C17 audio engine and editable Lua i
 
 ## Play
 
-Unpack the distribution, keep the `content` directory beside the program and launch `Blue` or `Blue.exe`. Select a patch with the arrow keys. Play the chromatic octave with **A W S E D F T G Y H U J K** or connect a MIDI controller before starting.
+Unpack the distribution, keep the `content` directory beside the program and launch `Blue` or `Blue.exe`. Select a patch with the arrow keys. Play all 36 letter and number keys or connect a MIDI controller before starting. The default C major mapping runs from **Z (C2)** to **0 (C7)**.
 
 | Desktop control | Action |
 | --- | --- |
@@ -13,14 +13,21 @@ Unpack the distribution, keep the `content` directory beside the program and lau
 | F4 / F6 | Open the patch JSON / Lua mapping in the source editor |
 | Ctrl+S or Cmd+S in the editor | Validate and save the edited loose file |
 | Esc | Close the source editor, or quit from the keyboard |
-| Z | Reload the pack from disk |
-| R | Start recording, then save the stereo WAV on the next press |
+| F10 | Start recording, then save the stereo WAV on the next press |
+| F11 | Reload the pack from disk |
+| F12 | Open the keyboard tuning dropdown |
 | [ / ] | Decrease or increase the second displayed macro by one eighth |
 | F8 | Open the graphical sound editor. Select a field with Up/Down, adjust it with Left/Right and save with Ctrl+S or Cmd+S |
 | F7 | Export the active preset, its eight macro values, Lua mapping and sample dependencies to a new ZIP |
 | F5 / F9 | Save or recall performance controls |
 
 Use `--preset "Calibration"` to choose the startup sound and `--user-dir DIR` to choose an existing writable settings directory. Recordings default to `Blue-recording.wav` in the launch directory. Use `--record-to PATH` to choose another destination. Use `--content-root DIR` to open a different tree containing `index.json` and its packs.
+
+## Keyboard tuning
+
+The keyboard rises through **Z–M**, **A–L**, **Q–P** and **1–0**, following the on-screen key labels. Each key plays the next scale degree. C major and E natural minor span five octaves across the 36 keys. A pentatonic scale spans seven. Select a tuning above the keyboard. The catalog includes D Hijaz, C Rast in 24-tone equal temperament, A minor pentatonic and a chromatic option. The computer and on-screen keys use the selected tuning. MIDI hardware and XR controllers retain their existing note assignments.
+
+Open **Tuning builder** on the web or **Build tuning** on desktop. Enter a root as a MIDI note number (C2 is 36 and A4 is 69), then enter 4–24 ascending intervals in cents starting at 0. Blue repeats the intervals every 1200 cents. For a quarter-tone example, enter **0, 200, 350, 500, 700, 900, 1050**. The final key must stay within MIDI 0–127. Saving adds the scale to the **Custom** slot. Notes already held release at the pitch they started on. [Editable factory tuning catalog](content/tunings.json)
 
 ## Factory sounds
 
@@ -52,7 +59,9 @@ python -m http.server 8000 --directory build-web/bin
 
 Open `http://localhost:8000`, click **Start audio**, then select a patch or play the keyboard. The editor can save a revision in browser storage and import or export a ZIP containing the patch, its Lua mapping and sound dependencies. To move a browser ZIP back to desktop, run `blue-pack import sound.zip MyLibrary`, then `Blue --content-root MyLibrary`. Desktop F7 writes `Blue-pack.zip` in the launch directory. Use `--export-to PATH` to choose a new ZIP destination. The bundled `blue-pack export PACK_DIR PRESET NEW.zip` command also exports a preset without opening an audio device.
 
-On Meta Quest 3, serve the same folder over HTTPS and open it in Meta Quest Browser. Start audio, then choose **Enter WebXR**. A trigger plays a note. Grip moves the nearest layer and changes the Motion macro. Turning your head changes the stereo position of each source.
+The hosted instrument is available over HTTPS in regular browsers and Meta Quest Browser. [Play Blue](https://stbange.github.io/blue/)
+
+On Meta Quest 3, open the hosted instrument in Meta Quest Browser. Start audio, then choose **Enter WebXR**. A trigger plays a note. Grip moves the nearest layer and changes the Motion macro. Turning your head changes the stereo position of each source.
 
 ## Extend an instrument
 

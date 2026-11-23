@@ -282,6 +282,26 @@ test("XR lifecycle, note ownership and listener-relative controls", async () => 
   await assert.rejects(start());
 });
 
+test("four keyboard rows step through an octave-repeating cents tuning", async () => {
+  const { keys, pitch, pitchName, parseTuning, validTuning, defaultTuning } = await load("tuning.js");
+  assert.equal(new Set(keys).size, 36);
+  assert.match([...keys].sort().join(""), /^0123456789abcdefghijklmnopqrstuvwxyz$/);
+  assert.ok(validTuning(defaultTuning));
+  assert.equal(pitch(defaultTuning, 35), 96);
+  assert.equal(pitch(defaultTuning, keys.indexOf("r")), 69);
+  const rast = parseTuning("36", "0, 200 350, 500, 700, 900, 1050");
+  assert.ok(rast);
+  assert.equal(pitchName(pitch(rast, 2)), "D♯2+50¢");
+  assert.equal(pitch(rast, 9), pitch(rast, 2) + 12);
+  for (const [root, steps] of [
+    ["", "0 200 350 700"], ["36.5", "0 200 350 700"],
+    ["36", "0 200 120 500"], ["-1", "0 200 350 700"],
+    ["60", "0 200 350 700"], ["36", "0 200 350 NaN"],
+    ["36", "0 200 350 1200"], ["36", "0 200 350 700,"],
+    ["36", "0 200 350"], ["36", "5 200 350 700"],
+  ]) assert.equal(parseTuning(root, steps), null);
+});
+
 test("flat host dispatches performance commands and manages user revisions", async () => {
   const win = new Window({ url: "https://test/blue/" }),
     document = win.document;
@@ -404,7 +424,9 @@ test("flat host dispatches performance commands and manages user revisions", asy
     json: async () =>
       String(url).endsWith("index.json")
         ? { packs: ["packs/factory"] }
-        : manifest,
+        : String(url).endsWith("tunings.json")
+          ? [{ name: "C major (C Dur)", root: 36, cents: [0, 200, 400, 500, 700, 900, 1100] }]
+          : manifest,
     text: async () => "",
     arrayBuffer: async () => new ArrayBuffer(2),
   });
@@ -464,14 +486,40 @@ test("flat host dispatches performance commands and manages user revisions", asy
   await settle();
   assert.equal(el("start").disabled, true);
   const keyboard = { key: "a", target: el("status"), preventDefault() {} };
-  win.onkeydown(keyboard);
-  win.onkeyup(keyboard);
+  for (const key of "abcdefghijklmnopqrstuvwxyz0123456789") {
+    win.onkeydown({ ...keyboard, key });
+    win.onkeyup({ ...keyboard, key, target: el("tuning") });
+  }
+  assert.equal(new Set(sounds.filter((msg) => msg?.c === 11).map((msg) => msg.i)).size, 36);
   win.onkeydown({ ...keyboard, ctrlKey: true });
+  win.onkeydown({ ...keyboard, key: "!", code: "Digit1" });
+  win.onkeyup({ ...keyboard, key: "1", code: "Digit1" });
   win.onblur();
-  const key = el("key60");
+  const key = el("key-z");
   key.setPointerCapture = () => {};
   key.onpointerdown({ pointerId: 9 });
-  key.onlostpointercapture();
+  key.onlostpointercapture({ pointerId: 9 });
+  key.onclick({ detail: 0 });
+  key.onclick({ detail: 1 });
+  el("tuning-root").value = "126";
+  el("tuning-apply").onclick();
+  assert.equal(el("tuning-error").hidden, false);
+  const xKey = { ...keyboard, key: "x", code: "KeyX" };
+  const beforeTuning = sounds.length;
+  win.onkeydown(xKey);
+  el("tuning-root").value = "24";
+  el("tuning-cents").value = "0 350 500 700";
+  el("tuning-apply").onclick();
+  assert.equal(el("tuning").value, "");
+  assert.equal(el("tuning-error").hidden, true);
+  assert.equal(el("key-x").getAttribute("aria-label"), "X D♯1+50¢");
+  win.onkeyup({ ...xKey, target: el("tuning-cents") });
+  win.onkeydown(xKey);
+  win.onkeyup(xKey);
+  assert.deepEqual(sounds.slice(beforeTuning).map(({c, i, v}) => [c, i, v]),
+    [[11, 129, 38], [1, 129, 0], [11, 129, 27.5], [1, 129, 0]]);
+  el("tuning").value = "C major (C Dur)";
+  el("tuning").onchange();
   el("m0").value = ".75";
   el("m0").oninput();
   assert.ok(sounds.some((m) => m?.c === 6 && m.v === 0.75));

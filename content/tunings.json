@@ -1,0 +1,8 @@
+[
+  {"name":"C major (C Dur)","root":36,"cents":[0,200,400,500,700,900,1100]},
+  {"name":"E minor (E-Moll)","root":40,"cents":[0,200,300,500,700,800,1000]},
+  {"name":"D Hijaz","root":38,"cents":[0,100,400,500,700,800,1000]},
+  {"name":"C Rast (24-TET)","root":36,"cents":[0,200,350,500,700,900,1050]},
+  {"name":"A minor pentatonic","root":33,"cents":[0,300,500,700,1000]},
+  {"name":"C chromatic","root":36,"cents":[0,100,200,300,400,500,600,700,800,900,1000,1100]}
+]

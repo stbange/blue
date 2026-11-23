@@ -15,7 +15,7 @@ from array import array
 from playwright.sync_api import expect, sync_playwright
 
 
-def check_audio(path):
+def check_audio(path, expected=440):
     with wave.open(str(path)) as wav:
         assert wav.getnchannels() == 2
         rate = wav.getframerate()
@@ -25,8 +25,9 @@ def check_audio(path):
         "silent or truncated capture"
     )
     samples = frames[active[0] : active[-1] + 1]
-    pitch = sum(a < 0 <= b for a, b in zip(samples, samples[1:])) * rate / len(samples)
-    assert 425 < pitch < 455, pitch
+    crossings = [i for i, (a, b) in enumerate(zip(samples, samples[1:])) if a < 0 <= b]
+    pitch = (len(crossings) - 1) * rate / (crossings[-1] - crossings[0])
+    assert abs(pitch - expected) < 2, (pitch, expected)
     assert max(map(abs, frames[-int(rate * 0.025) :])) < 64, "stuck note"
     print(f"Captured {len(frames)} stereo frames at {rate} Hz, tone {pitch:.1f} Hz")
 
@@ -125,15 +126,34 @@ def main():
             page.locator("#midi").click()
             expect(page.get_by_role("status")).to_contain_text("denied")
             page.get_by_role("button", name="Record output").click()
-            page.keyboard.down("h")
+            page.keyboard.down("r")
             page.wait_for_timeout(280)
-            page.keyboard.up("h")
+            page.keyboard.up("r")
             page.wait_for_timeout(160)
             with page.expect_download() as capture:
                 page.get_by_role("button", name="Stop recording").click()
             wav = evidence / "flat.wav"
             capture.value.save_as(wav)
             check_audio(wav)
+            assert page.locator("#keyboard button").count() == 36
+            page.locator("#tuning").select_option(label="C Rast (24-TET)")
+            expect(page.locator("#key-c span")).to_have_text("D♯2+50¢")
+            page.get_by_text("Tuning builder", exact=True).click()
+            page.locator("#tuning-root").fill("36")
+            page.locator("#tuning-cents").fill("0, 200, 400, 500, 700, 950, 1100")
+            page.get_by_role("button", name="Save custom tuning").click()
+            expect(page.locator("#key-r span")).to_have_text("A4+50¢")
+            page.get_by_role("button", name="Record output").click()
+            page.keyboard.down("r")
+            page.wait_for_timeout(310)
+            page.keyboard.up("r")
+            page.wait_for_timeout(160)
+            with page.expect_download() as custom:
+                page.get_by_role("button", name="Stop recording").click()
+            custom_wav = evidence / "custom-tuning.wav"
+            custom.value.save_as(custom_wav)
+            check_audio(custom_wav, 440 * 2 ** (0.5 / 12))
+            page.locator("#tuning").select_option(label="C major (C Dur)")
             page.get_by_text("Patch and Lua editor", exact=True).click()
             original = page.locator("#mapping").input_value()
             earlier = json.loads(page.locator("#document").input_value())
@@ -149,6 +169,10 @@ def main():
             page.get_by_role("button", name="Save revision").click()
             expect(page.get_by_role("status")).to_contain_text("Saved")
             page.reload()
+            expect(page.get_by_role("status")).to_contain_text("Patch ready")
+            page.locator("#tuning").select_option(label="Custom")
+            expect(page.locator("#key-r span")).to_have_text("A4+50¢")
+            page.locator("#tuning").select_option(label="C major (C Dur)")
             page.get_by_role("button", name="Calibration").click()
             expect(page.locator("#mapping")).to_have_value(
                 original + "\nblue.route(4, 'gain', -1)"
@@ -197,9 +221,9 @@ def main():
             )
             page.locator("#m3").fill("0.75")
             page.get_by_role("button", name="Record output").click()
-            page.keyboard.down("h")
+            page.keyboard.down("r")
             page.wait_for_timeout(320)
-            page.keyboard.up("h")
+            page.keyboard.up("r")
             page.wait_for_timeout(190)
             with page.expect_download() as edited:
                 page.get_by_role("button", name="Stop recording").click()

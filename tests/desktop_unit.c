@@ -62,11 +62,11 @@ static int next_event(SDL_Event *ev) {
   }
   between = 1;
   memset(ev, 0, sizeof *ev);
-  static const SDL_Keycode actions[] = {SDLK_LEFT,        SDLK_r,
-                                        SDLK_h,           SDLK_h,
-                                        SDLK_r,           SDLK_F5,
+  static const SDL_Keycode actions[] = {SDLK_LEFT,        SDLK_F10,
+                                        SDLK_r,           SDLK_r,
+                                        SDLK_F10,         SDLK_F5,
                                         SDLK_RIGHT,       SDLK_F9,
-                                        SDLK_z,           SDLK_F2,
+                                        SDLK_F11,         SDLK_F2,
                                         SDLK_F3,          SDLK_F4,
                                         SDLK_END,         SDLK_HOME,
                                         SDLK_DOWN,        SDLK_UP,
@@ -78,7 +78,13 @@ static int next_event(SDL_Event *ev) {
                                         SDLK_LEFTBRACKET, SDLK_F7,
                                         SDLK_F8,          SDLK_DOWN,
                                         SDLK_RIGHT,       SDLK_s,
-                                        SDLK_ESCAPE};
+                                        SDLK_ESCAPE,      SDLK_F12,
+                                        SDLK_DOWN,        SDLK_RETURN,
+                                        SDLK_F12,         SDLK_UP,
+                                        SDLK_UP,          SDLK_RETURN,
+                                        SDLK_END,         SDLK_TAB,
+                                        SDLK_RETURN,      SDLK_F12,
+                                        SDLK_ESCAPE,      SDLK_0};
   if (position < (int)(sizeof actions / sizeof *actions)) {
     ev->type = position == 3 ? SDL_KEYUP : SDL_KEYDOWN;
     ev->key.keysym.sym = actions[position];
@@ -110,6 +116,23 @@ static int next_event(SDL_Event *ev) {
       ev->window.event = SDL_WINDOWEVENT_FOCUS_LOST;
       break;
     case 5:
+      ev->type = SDL_MOUSEBUTTONDOWN;
+      mx = 353;
+      my = 268;
+      break;
+    case 6:
+      ev->type = SDL_TEXTINPUT;
+      strcpy(ev->text.text, "127");
+      break;
+    case 7:
+      ev->type = SDL_KEYDOWN;
+      ev->key.keysym.sym = SDLK_RETURN;
+      break;
+    case 8:
+      ev->type = SDL_KEYDOWN;
+      ev->key.keysym.sym = SDLK_ESCAPE;
+      break;
+    case 9:
       ev->type = SDL_AUDIODEVICEREMOVED;
       ev->adevice.which = 3;
       break;
@@ -176,6 +199,36 @@ int main(int argc, char **argv) {
   if (!valid)
     return 1;
   SDL_Init(SDL_INIT_VIDEO);
+  App tuning_app = {.tuning_count = 1, .user_dir = argv[3]};
+  custom_tuning(&tuning_app, 0);
+  if (tuning_app.tunings[1].root != 40 || tuning_app.tunings[1].cents[2] != 300)
+    return 1;
+  BlueTuning catalog[BLUE_TUNINGS], custom;
+  char tunings_path[2048];
+  snprintf(tunings_path, sizeof tunings_path, "%s/tunings.json", argv[1]);
+  if (blue_read_tunings(tunings_path, catalog) != 6 ||
+      blue_tuned_pitch(&catalog[0], 35) != 96 ||
+      blue_tuned_pitch(&catalog[1], 2) != 43 ||
+      blue_tuned_pitch(&catalog[3], 2) != 39.5f ||
+      blue_read_tunings("missing-tuning", catalog) != 1)
+    return 1;
+  if (!blue_parse_tuning(" 24 ", "0, 200 350, 700", &custom) ||
+      blue_tuned_pitch(&custom, 2) != 27.5f ||
+      blue_tuned_pitch(&custom, 35) != 127)
+    return 1;
+  static const char *invalid_steps[] = {
+      "20 200 350 700", "0 200 199 700", "0 200 350 1200", "0 200 350 nan",
+      "0 200 350 700,", "0 x 350 700",   "0 200"};
+  for (unsigned i = 0; i < sizeof invalid_steps / sizeof *invalid_steps; i++)
+    if (blue_parse_tuning("24", invalid_steps[i], &custom))
+      return 1;
+  if (blue_parse_tuning("71", "0 200 350 700", &custom) ||
+      blue_parse_tuning("2.5", "0 200 350 700", &custom))
+    return 1;
+  char micro[16];
+  blue_pitch_name(39.5f, micro, sizeof micro);
+  if (strcmp(micro, "D#2+50"))
+    return 1;
   BluePreset preset = {0};
   snprintf(preset.folder, sizeof preset.folder, "%s/packs/blue.factory",
            argv[1]);
