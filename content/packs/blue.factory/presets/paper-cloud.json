@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "sample": "paper",
+  "lanes": [
+    {
+      "source": "grain",
+      "gain": 1,
+      "position": 0.45,
+      "size": 0.1,
+      "density": 45,
+      "scatter": 0.2,
+      "space": 0.4
+    }
+  ],
+  "release": 0.8
+}

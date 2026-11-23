@@ -1,0 +1,170 @@
+name: Build and exercise Blue
+on: [pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  native:
+    env:
+      BLUE_EVIDENCE: evidence
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev libxss-dev libxxf86vm-dev xvfb xauth
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+      - run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build build --parallel 4
+      - run: ctest --test-dir build --output-on-failure
+      - run: cmake --install build --component Blue --prefix package
+      - run: python tests/distribution.py package
+      - run: cmake -E tar czf Blue-${{ runner.os }}.tar.gz package
+      - run: cmake -E make_directory installed
+      - run: cmake -E chdir installed cmake -E tar xzf ../Blue-${{ runner.os }}.tar.gz
+      - run: python tests/distribution.py installed/package
+      - run: pip install pyautogui==0.9.54 Pillow==11.3.0
+      - if: runner.os == 'Linux'
+        run: xvfb-run -a python tests/e2e_desktop.py installed/package/Blue
+      - if: runner.os == 'Windows'
+        run: python tests/e2e_desktop.py installed/package/Blue.exe
+      - if: runner.os == 'macOS'
+        run: python tests/e2e_desktop.py installed/package/Blue
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Blue-${{ runner.os }}
+          path: Blue-${{ runner.os }}.tar.gz
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audio-desktop-${{ runner.os }}
+          path: evidence/
+  web:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 4.0.20
+      - run: emcmake cmake -S . -B build-web -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build build-web --parallel 4
+      - run: python tests/distribution.py build-web/bin --web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Blue-Web
+          path: build-web/bin/
+      - run: emcmake cmake -S . -B extension -G Ninja -DCMAKE_BUILD_TYPE=Release -DBLUE_EXTENSION_SOURCE="$GITHUB_WORKSPACE/tests/fixture_node.c"
+      - run: cmake --build extension --parallel 4
+      - run: python tests/extension.py build-web/bin extension/bin
+  browser-e2e:
+    env:
+      BLUE_EVIDENCE: evidence
+    needs: [web, native]
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright/python:v1.62.0-noble
+      options: --ipc=host
+    strategy:
+      fail-fast: false
+      matrix:
+        surface: [chromium, firefox, webkit, webxr]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Blue-Web
+          path: site
+      - run: pip install playwright==1.62.0 --break-system-packages
+      - if: matrix.surface == 'firefox'
+        run: |
+          chown "$(id -u):$(id -g)" /github/home
+          apt-get update -qq && apt-get install -qy pulseaudio
+          pulseaudio --system -n --daemonize --exit-idle-time=-1 --disable-shm --load="module-native-protocol-unix socket=/tmp/blue-pulse auth-anonymous=1" --load="module-null-sink sink_name=blue rate=48000 channels=2"
+          echo 'PULSE_SERVER=unix:/tmp/blue-pulse' >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v4
+        if: matrix.surface == 'chromium'
+        with:
+          name: Blue-Linux
+      - if: matrix.surface == 'chromium'
+        run: |
+          tar -xzf Blue-Linux.tar.gz
+          python tests/e2e_web.py site --native-package package
+      - if: matrix.surface == 'firefox' || matrix.surface == 'webkit'
+        run: python tests/e2e_web.py site --browser ${{ matrix.surface }}
+      - uses: actions/setup-node@v4
+        if: matrix.surface == 'webxr'
+        with:
+          node-version: 24
+      - if: matrix.surface == 'webxr'
+        run: |
+          npm install --no-save iwer@2.8.0
+          python tests/e2e_web.py site --iwer node_modules/iwer/build/iwer.min.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audio-${{ matrix.surface }}
+          path: evidence/
+  unit-coverage:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+      - run: cmake -S . -B coverage -G Ninja -DBLUE_COVERAGE=ON
+      - run: cmake --build coverage --parallel 4
+      - run: python tests/coverage.py coverage | tee c-coverage.txt
+        shell: bash
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci --prefix tests/js && node tests/js/node_modules/c8/bin/c8.js --all --src hosts/web/site --include "hosts/web/site/*.js" --check-coverage --lines 95 --reporter=text --reporter=json-summary --report-dir js-report node --experimental-vm-modules --test tests/js/units.mjs
+      - run: python tests/coverage_total.py coverage js-report/coverage-summary.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Blue-unit-coverage
+          path: |
+            c-coverage.txt
+            coverage/all-lines.json
+            js-report/coverage-summary.json
+      - run: pip install numpy && python tests/sonic.py coverage/bin/blue-render
+      - run: npm ci --prefix tools/openspec && tools/openspec/node_modules/.bin/openspec validate --all --strict --no-interactive
+  audio-parity:
+    needs: [native, web]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Blue-Linux
+      - uses: actions/download-artifact@v4
+        with:
+          name: Blue-Web
+          path: site
+      - run: tar -xzf Blue-Linux.tar.gz
+      - run: pip install numpy
+      - run: python tests/parity.py package/blue-render site
+      - run: python tests/loose_assets.py package/blue-render site
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: python tests/listening.py package/blue-render listening
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Blue-listening-panel
+          path: listening/
+  desktop-profile:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: cmake -S . -B profile -G Ninja -DCMAKE_BUILD_TYPE=Release -DBLUE_DESKTOP=OFF
+      - run: cmake --build profile --target blue_benchmark
+      - run: python tests/profile.py profile/bin/blue_benchmark evidence
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Blue-desktop-profile
+          path: evidence/

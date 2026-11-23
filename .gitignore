@@ -1,0 +1,8 @@
+build*/
+*.gcov
+*.gcda
+*.gcno
+__pycache__/
+
+node_modules/
+coverage/
